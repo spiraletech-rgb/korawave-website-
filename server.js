@@ -1988,6 +1988,63 @@ app.post('/api/push/test', auth(), (req, res) => {
 });
 
 // ===========================================================================
+// RECONNAISSANCE AUDIO (fingerprinting style Shazam)
+// ===========================================================================
+
+// Matching serveur — même algo que fingerprint.js (BER avec décalage temporel)
+function matchFingerprintServer(query, stored, maxOff = 80) {
+  const len = Math.min(query.length, stored.length, 800);
+  if (len < 30) return 0;
+  let best = 0;
+  for (let off = -maxOff; off <= maxOff; off++) {
+    let matches = 0, total = 0;
+    for (let i = 0; i < len; i++) {
+      const j = i + off;
+      if (j < 0 || j >= stored.length) continue;
+      if (query[i] === stored[j]) matches++;
+      total++;
+    }
+    if (total > 0 && matches / total > best) best = matches / total;
+  }
+  return best;
+}
+
+// Identifier un morceau à partir de son empreinte (envoyée par le client)
+app.post('/api/identify', auth(false), (req, res) => {
+  const { fingerprint } = req.body;
+  if (!Array.isArray(fingerprint) || fingerprint.length < 30) {
+    return res.status(400).json({ error: 'Empreinte trop courte ou invalide' });
+  }
+  const data = db.read();
+  const uid = req.user?.id || null;
+  let bestTrack = null, bestScore = 0;
+  for (const track of (data.tracks || [])) {
+    if (!track.fingerprint || !isReleased(track)) continue;
+    const score = matchFingerprintServer(fingerprint, track.fingerprint);
+    if (score > bestScore) { bestScore = score; bestTrack = track; }
+  }
+  const THRESHOLD = 0.60;
+  if (bestScore < THRESHOLD || !bestTrack) {
+    return res.json({ found: false, score: Math.round(bestScore * 100) });
+  }
+  res.json({ found: true, score: Math.round(bestScore * 100), track: publicTrack(bestTrack, data, uid) });
+});
+
+// Stocker l'empreinte d'un titre (calculée côté client par l'admin)
+app.post('/api/tracks/:id/fingerprint', auth(), adminOnly, (req, res) => {
+  const { fingerprint } = req.body;
+  if (!Array.isArray(fingerprint) || fingerprint.length < 30) {
+    return res.status(400).json({ error: 'Empreinte invalide' });
+  }
+  const data = db.read();
+  const track = (data.tracks || []).find((t) => t.id === req.params.id);
+  if (!track) return res.status(404).json({ error: 'Titre introuvable' });
+  track.fingerprint = fingerprint;
+  db.write(data);
+  res.json({ ok: true, bits: fingerprint.length });
+});
+
+// ===========================================================================
 // EXPORT CSV ADMIN
 // ===========================================================================
 

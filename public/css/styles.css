@@ -1660,3 +1660,59 @@ img { display: block; }
 
 /* Export CSV */
 .csv-dl { text-decoration: none; white-space: nowrap; }
+
+/* ============================================================
+   RECONNAISSANCE AUDIO (Shazam)
+   ============================================================ */
+.identify-btn {
+  background: none; border: none; cursor: pointer; font-size: 18px;
+  padding: 2px 6px; border-radius: 8px; transition: background .15s;
+  color: var(--text); opacity: .7;
+}
+.identify-btn:hover { background: var(--gold-dim); opacity: 1; }
+
+/* Modale identify */
+.id-overlay { align-items: center; }
+.id-modal { text-align: center; max-width: 360px; padding: 36px 28px; }
+.id-logo { font-size: 48px; margin-bottom: 8px; }
+.id-title { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.id-sub { font-size: 14px; color: var(--muted); margin-bottom: 20px; min-height: 20px; }
+.id-countdown { font-size: 36px; font-weight: 900; color: var(--gold); min-height: 48px; margin-bottom: 8px; }
+
+/* Waveform animation */
+.id-wave { display: flex; align-items: center; justify-content: center; gap: 4px; height: 48px; margin-bottom: 16px; }
+.id-wave span { display: block; width: 4px; background: var(--border); border-radius: 2px; height: 8px; transition: height .1s; }
+.id-wave.id-listening span {
+  background: var(--gold);
+  animation: wavebar .8s ease-in-out infinite;
+}
+.id-wave.id-listening span:nth-child(1) { animation-delay: 0s; }
+.id-wave.id-listening span:nth-child(2) { animation-delay: .07s; }
+.id-wave.id-listening span:nth-child(3) { animation-delay: .14s; }
+.id-wave.id-listening span:nth-child(4) { animation-delay: .21s; }
+.id-wave.id-listening span:nth-child(5) { animation-delay: .28s; }
+.id-wave.id-listening span:nth-child(6) { animation-delay: .21s; }
+.id-wave.id-listening span:nth-child(7) { animation-delay: .14s; }
+.id-wave.id-listening span:nth-child(8) { animation-delay: .07s; }
+.id-wave.id-listening span:nth-child(9) { animation-delay: 0s; }
+.id-wave.id-listening span:nth-child(10) { animation-delay: .07s; }
+
+@keyframes wavebar {
+  0%, 100% { height: 8px; }
+  50%       { height: 36px; }
+}
+
+.id-start-btn { margin-top: 4px; padding: 14px 32px; border-radius: 32px; font-size: 16px; }
+
+/* Résultat */
+.id-no-match { color: var(--muted); padding: 16px 0; line-height: 1.6; }
+.id-match-card { display: flex; gap: 14px; align-items: center; background: var(--dark1); border-radius: 14px; padding: 14px; margin-top: 16px; }
+.id-match-art { width: 56px; height: 56px; border-radius: 8px; background: var(--dark2); overflow: hidden; flex-shrink: 0; display: grid; place-items: center; font-size: 24px; color: var(--gold); }
+.id-match-art img { width: 100%; height: 100%; object-fit: cover; }
+.id-match-info { text-align: left; }
+.id-match-title { font-weight: 800; color: var(--text); font-size: 15px; }
+.id-match-artist { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.id-match-genre { font-size: 11px; color: var(--muted2); margin-top: 2px; }
+
+/* Banner fingerprint admin */
+.fp-admin-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--dark1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }

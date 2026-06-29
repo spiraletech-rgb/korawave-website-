@@ -1044,6 +1044,131 @@
     _msgBadgeTimer = setInterval(refresh, 45000);
   }
 
+  // ============================================================
+  //  RECONNAISSANCE AUDIO (style Shazam)
+  // ============================================================
+
+  function identifyModal() {
+    const m = el(`<div class="overlay id-overlay">
+      <div class="modal id-modal">
+        <button class="modal-close" data-close>&times;</button>
+        <div class="id-logo">🎤</div>
+        <div class="id-title">Identifier un morceau</div>
+        <div class="id-sub" id="idSub">Appuie sur Écouter et joue ta musique</div>
+        <div class="id-wave" id="idWave">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="id-countdown" id="idCountdown"></div>
+        <button class="btn btn-gold id-start-btn" id="idStartBtn">🎤 Écouter (10 sec)</button>
+        <div class="id-result hidden" id="idResult"></div>
+      </div>
+    </div>`);
+
+    m.addEventListener('click', (e) => { if (e.target === m || e.target.dataset.close) { stopIdentify(); m.remove(); } });
+    $('#modalRoot').appendChild(m);
+
+    let mediaStream = null, recorder = null, timer = null;
+
+    function stopIdentify() {
+      clearInterval(timer);
+      if (mediaStream) { mediaStream.getTracks().forEach((t) => t.stop()); mediaStream = null; }
+      if (recorder && recorder.state !== 'inactive') recorder.stop();
+      m.querySelector('#idWave').classList.remove('id-listening');
+    }
+
+    async function showResult(found, track, score) {
+      const resultEl = m.querySelector('#idResult');
+      resultEl.classList.remove('hidden');
+      m.querySelector('#idStartBtn').textContent = '🔄 Réessayer';
+      m.querySelector('#idStartBtn').disabled = false;
+      m.querySelector('#idSub').textContent = found ? `Trouvé avec ${score}% de confiance` : 'Morceau non reconnu dans le catalogue KORAWAVE';
+
+      if (!found) {
+        resultEl.innerHTML = `<div class="id-no-match">😕 Morceau non trouvé<br><small>Le titre n'est peut-être pas encore dans le catalogue.</small></div>`;
+        return;
+      }
+      resultEl.innerHTML = `
+        <div class="id-match-card">
+          <div class="id-match-art">${track.coverUrl ? `<img src="${esc(track.coverUrl)}" />` : '♪'}</div>
+          <div class="id-match-info">
+            <div class="id-match-title">${esc(track.title)}</div>
+            <div class="id-match-artist">${esc(track.artist)}${track.verified ? ' <span class="verified-badge">✔</span>' : ''}</div>
+            <div class="id-match-genre">${esc(track.genre || '')}</div>
+          </div>
+        </div>
+        <button class="btn btn-gold btn-block" id="idPlayBtn" style="margin-top:12px">▶ Écouter maintenant</button>
+      `;
+      m.querySelector('#idPlayBtn')?.addEventListener('click', () => {
+        m.remove();
+        playTrack(track.id);
+      });
+    }
+
+    m.querySelector('#idStartBtn').addEventListener('click', async function () {
+      this.disabled = true;
+      m.querySelector('#idResult').classList.add('hidden');
+      m.querySelector('#idSub').textContent = 'Écoute en cours…';
+      m.querySelector('#idWave').classList.add('id-listening');
+      m.querySelector('#idCountdown').textContent = '10';
+
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        m.querySelector('#idSub').textContent = 'Accès micro refusé';
+        this.disabled = false;
+        return;
+      }
+
+      const chunks = [];
+      recorder = new MediaRecorder(mediaStream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+      recorder.onstop = async () => {
+        m.querySelector('#idWave').classList.remove('id-listening');
+        m.querySelector('#idSub').textContent = 'Analyse en cours…';
+        m.querySelector('#idCountdown').textContent = '';
+
+        try {
+          const blob = new Blob(chunks, { type: recorder.mimeType });
+          const arrayBuffer = await blob.arrayBuffer();
+          const audioCtx = new AudioContext();
+          const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+          const samples = audioBuffer.getChannelData(0);
+          const fingerprint = KWFingerprint.computeFingerprint(samples, audioBuffer.sampleRate);
+
+          if (fingerprint.length < 30) throw new Error('Enregistrement trop court');
+
+          const r = await api('/identify', { method: 'POST', body: { fingerprint } });
+          await showResult(r.found, r.track, r.score);
+        } catch (err) {
+          m.querySelector('#idSub').textContent = 'Erreur : ' + err.message;
+          m.querySelector('#idStartBtn').disabled = false;
+        }
+      };
+
+      recorder.start();
+      let secs = 10;
+      timer = setInterval(() => {
+        secs--;
+        m.querySelector('#idCountdown').textContent = secs > 0 ? secs : '';
+        if (secs <= 0) { clearInterval(timer); recorder.stop(); stopIdentify(); }
+      }, 1000);
+    });
+  }
+
+  // Calculer et envoyer l'empreinte d'un titre (admin, depuis l'URL du fichier)
+  async function computeAndSendFingerprint(trackId, audioUrl) {
+    const r = await fetch(audioUrl);
+    const buf = await r.arrayBuffer();
+    const ctx = new AudioContext();
+    const ab = await ctx.decodeAudioData(buf);
+    const samples = ab.getChannelData(0);
+    const fp = KWFingerprint.computeFingerprint(samples, ab.sampleRate);
+    await api('/tracks/' + trackId + '/fingerprint', { method: 'POST', body: { fingerprint: fp } });
+    return fp.length;
+  }
+
   let _artistProfile = null;
 
   async function viewArtistPublic() {
@@ -3057,6 +3182,37 @@
     }).join('');
   }
 
+  function mountFingerprintAdmin() {
+    const tracks = State.tracks || [];
+    const withFp = tracks.filter((t) => t.fingerprint).length;
+    const without = tracks.filter((t) => !t.fingerprint && t.audioUrl);
+    const container = $('#manageList');
+    if (!container) return;
+    const banner = el(`<div class="fp-admin-banner">
+      <span>🎤 Empreintes audio : <strong>${withFp}/${tracks.length}</strong> titres indexés</span>
+      ${without.length ? `<button class="btn btn-outline btn-sm" id="fpComputeBtn">Indexer ${without.length} titre(s) manquant(s)</button>` : '<span class="pill" style="background:var(--gold-dim);color:var(--gold)">✓ Tout est indexé</span>'}
+    </div>`);
+    container.parentElement?.insertBefore(banner, container);
+
+    banner.querySelector('#fpComputeBtn')?.addEventListener('click', async function () {
+      this.disabled = true;
+      this.textContent = 'Calcul en cours…';
+      let done = 0;
+      for (const track of without) {
+        try {
+          const bits = await computeAndSendFingerprint(track.id, track.audioUrl);
+          done++;
+          this.textContent = `${done}/${without.length} indexé(s)…`;
+          toast(`✓ ${track.title} indexé (${bits} bits)`);
+        } catch (e) {
+          toast(`Erreur sur "${track.title}" : ` + e.message);
+        }
+      }
+      this.textContent = `✓ ${done} indexé(s)`;
+      await loadData();
+    });
+  }
+
   function editContentModal(type, id) {
     const items = type === 'audio' ? State.tracks : State.videos;
     const item = items.find((x) => x.id === id);
@@ -3142,7 +3298,7 @@
         if (!State.user || State.user.role !== 'admin') { State.view = 'home'; c.innerHTML = viewHome(); mountSliders(); break; }
         c.innerHTML = await viewDashboard();
         if (adminTab === 'apercu') mountAnalytics('admin');
-        if (adminTab === 'contenu') { mountUploadForms(); mountManageList(); }
+        if (adminTab === 'contenu') { mountUploadForms(); mountManageList(); mountFingerprintAdmin(); }
         if (adminTab === 'battle') mountBattleAdmin();
         if (adminTab === 'events') mountEventsAdmin();
         if (adminTab === 'finance') mountFinanceAdmin();
@@ -3525,6 +3681,7 @@
     $('#openLogin').onclick = loginModal;
     $('#openRegister').onclick = registerModal;
     $('#logoutBtn').onclick = logout;
+    $('#identifyBtn').onclick = identifyModal;
 
     // Cat panel — mobile overlay close
     const overlay = $('#sidebarOverlay');
