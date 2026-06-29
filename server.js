@@ -1911,6 +1911,79 @@ app.get('/api/top-guinee', (req, res) => {
 });
 
 // ===========================================================================
+// PLAYLISTS
+// ===========================================================================
+
+app.get('/api/playlists', auth(), (req, res) => {
+  const data = db.read();
+  const pls = (data.playlists || []).filter((p) => p.userId === req.user.id);
+  res.json({ playlists: pls.map((p) => ({ ...p, trackCount: (p.trackIds || []).length })) });
+});
+
+app.post('/api/playlists', auth(), (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Nom requis' });
+  const data = db.read();
+  if (!data.playlists) data.playlists = [];
+  const pl = { id: crypto.randomUUID(), userId: req.user.id, name: name.trim(), trackIds: [], createdAt: new Date().toISOString() };
+  data.playlists.push(pl);
+  db.write(data);
+  res.json({ playlist: pl });
+});
+
+app.get('/api/playlists/:id', auth(), (req, res) => {
+  const data = db.read();
+  const pl = (data.playlists || []).find((p) => p.id === req.params.id && p.userId === req.user.id);
+  if (!pl) return res.status(404).json({ error: 'Playlist introuvable' });
+  const tracks = (pl.trackIds || []).map((tid) => {
+    const t = (data.tracks || []).find((x) => x.id === tid);
+    return t ? publicTrack(t, data, req.user.id) : null;
+  }).filter(Boolean);
+  res.json({ playlist: { ...pl, tracks } });
+});
+
+app.delete('/api/playlists/:id', auth(), (req, res) => {
+  const data = db.read();
+  const idx = (data.playlists || []).findIndex((p) => p.id === req.params.id && p.userId === req.user.id);
+  if (idx === -1) return res.status(404).json({ error: 'Playlist introuvable' });
+  data.playlists.splice(idx, 1);
+  db.write(data);
+  res.json({ ok: true });
+});
+
+app.patch('/api/playlists/:id', auth(), (req, res) => {
+  const data = db.read();
+  const pl = (data.playlists || []).find((p) => p.id === req.params.id && p.userId === req.user.id);
+  if (!pl) return res.status(404).json({ error: 'Playlist introuvable' });
+  if (req.body.name) pl.name = req.body.name.trim();
+  db.write(data);
+  res.json({ playlist: pl });
+});
+
+app.post('/api/playlists/:id/tracks', auth(), (req, res) => {
+  const { trackId } = req.body;
+  if (!trackId) return res.status(400).json({ error: 'trackId requis' });
+  const data = db.read();
+  const pl = (data.playlists || []).find((p) => p.id === req.params.id && p.userId === req.user.id);
+  if (!pl) return res.status(404).json({ error: 'Playlist introuvable' });
+  if (!data.tracks.find((t) => t.id === trackId)) return res.status(404).json({ error: 'Titre introuvable' });
+  if (!pl.trackIds) pl.trackIds = [];
+  if (pl.trackIds.includes(trackId)) return res.status(409).json({ error: 'Déjà dans la playlist' });
+  pl.trackIds.push(trackId);
+  db.write(data);
+  res.json({ ok: true, trackCount: pl.trackIds.length });
+});
+
+app.delete('/api/playlists/:id/tracks/:trackId', auth(), (req, res) => {
+  const data = db.read();
+  const pl = (data.playlists || []).find((p) => p.id === req.params.id && p.userId === req.user.id);
+  if (!pl) return res.status(404).json({ error: 'Playlist introuvable' });
+  pl.trackIds = (pl.trackIds || []).filter((tid) => tid !== req.params.trackId);
+  db.write(data);
+  res.json({ ok: true, trackCount: pl.trackIds.length });
+});
+
+// ===========================================================================
 // PAGE PUBLIQUE ARTISTE
 // ===========================================================================
 

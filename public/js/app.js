@@ -20,6 +20,7 @@
     genreFilter: null,
     _artistFilter: null,
     _artistPageId: null,
+    _playlistId: null,
     search: '',
     queue: [],
     queueIndex: -1,
@@ -468,7 +469,7 @@
         <div class="card-meta">
           ${scheduled
             ? `<span class="card-soon">⏳ <span data-countdown="${t.releaseAt}">${countdownText(t.releaseAt)}</span></span>`
-            : `<span class="card-price">${fmtMoney(t.price)}</span><button class="cmt-pill" data-detail="audio:${t.id}" title="Commentaires & détails">💬 ${fmtNum(t.comments || 0)}</button><button class="prev-pill" data-preview="${t.id}" title="Aperçu gratuit 10 secondes">◷ 10s</button>${t.owned ? '<span class="owned-pill">✓ Acheté</span>' : `<button class="buy-pill" data-buy="audio:${t.id}" title="Acheter avec des KOINS">${fmtNum(t.price)} K</button>`}`}
+            : `<span class="card-price">${fmtMoney(t.price)}</span><button class="cmt-pill" data-detail="audio:${t.id}" title="Commentaires & détails">💬 ${fmtNum(t.comments || 0)}</button><button class="prev-pill" data-preview="${t.id}" title="Aperçu gratuit 10 secondes">◷ 10s</button>${t.owned ? '<span class="owned-pill">✓ Acheté</span>' : `<button class="buy-pill" data-buy="audio:${t.id}" title="Acheter avec des KOINS">${fmtNum(t.price)} K</button>`}${State.user ? `<button class="pl-pill" data-addtopl="${t.id}" title="Ajouter à une playlist">+📋</button>` : ''}`}
         </div>
       </div>`;
   }
@@ -636,6 +637,216 @@
         track.scrollBy({ left: isPrev ? -(track.offsetWidth * .75) : track.offsetWidth * .75, behavior: 'smooth' });
       });
     });
+  }
+
+  // ============================================================
+  //  PLAYLISTS
+  // ============================================================
+
+  async function viewPlaylists() {
+    if (!State.user) { loginModal(); return '<div class="empty">Connecte-toi pour voir tes playlists.</div>'; }
+    const data = await api('/playlists');
+    const pls = data.playlists || [];
+    return `
+      <div class="dash-head">
+        <h1>📋 Mes Playlists</h1>
+        <button class="btn btn-gold" id="createPlBtn">+ Nouvelle playlist</button>
+      </div>
+      ${pls.length === 0
+        ? emptyBlock('📋', 'Aucune playlist. Crée-en une !')
+        : `<div class="pl-grid">${pls.map((p) => `
+          <div class="pl-card" data-open-pl="${esc(p.id)}">
+            <div class="pl-icon">♪</div>
+            <div class="pl-info">
+              <div class="pl-name">${esc(p.name)}</div>
+              <div class="pl-meta">${fmtNum(p.trackCount)} titre${p.trackCount !== 1 ? 's' : ''}</div>
+            </div>
+            <div class="pl-actions">
+              <button class="btn btn-outline btn-sm" data-open-pl="${esc(p.id)}">▶ Ouvrir</button>
+              <button class="btn btn-ghost btn-sm pl-del" data-del-pl="${esc(p.id)}" title="Supprimer">🗑</button>
+            </div>
+          </div>`).join('')}
+        </div>`}
+    `;
+  }
+
+  async function viewPlaylistDetail() {
+    const id = State._playlistId;
+    if (!id) { State.view = 'playlists'; render(); return ''; }
+    let pl;
+    try { pl = (await api('/playlists/' + id)).playlist; }
+    catch (e) { return `<div class="empty">${esc(e.message)}</div>`; }
+    return `
+      <div class="dash-head">
+        <button class="btn btn-ghost btn-sm" id="backToPlaylists">← Playlists</button>
+        <h1>📋 ${esc(pl.name)}</h1>
+        <div style="display:flex;gap:8px">
+          ${pl.tracks.length ? `<button class="btn btn-gold" id="plPlayAll">▶ Tout écouter</button>` : ''}
+          <button class="btn btn-ghost btn-sm" id="renamePlBtn" data-pl-id="${esc(pl.id)}">✏️ Renommer</button>
+        </div>
+      </div>
+      <p class="pl-detail-meta">${fmtNum(pl.tracks.length)} titre${pl.tracks.length !== 1 ? 's' : ''}</p>
+      ${pl.tracks.length === 0
+        ? emptyBlock('🎵', 'Playlist vide. Ajoute des titres via le bouton +📋 sur les cartes.')
+        : `<div class="pl-track-list">${pl.tracks.map((t, i) => `
+          <div class="pl-track-row" data-play="${t.id}">
+            <span class="ptr-num">${i + 1}</span>
+            <div class="ptr-art">${t.coverUrl ? `<img src="${esc(t.coverUrl)}" />` : '♪'}</div>
+            <div class="ptr-info">
+              <div class="ptr-title">${esc(t.title)}</div>
+              <div class="ptr-artist">${esc(t.artist)}</div>
+            </div>
+            <div class="ptr-right">
+              <span class="ptr-price">${fmtMoney(t.price)}</span>
+              <button class="btn btn-ghost btn-sm pl-remove-track" data-pl-id="${esc(pl.id)}" data-track-id="${esc(t.id)}" title="Retirer de la playlist">✕</button>
+            </div>
+          </div>`).join('')}
+        </div>`}
+    `;
+  }
+
+  function mountPlaylistDetail() {
+    const pl = { id: State._playlistId };
+    document.getElementById('backToPlaylists')?.addEventListener('click', () => { State.view = 'playlists'; State._playlistId = null; render(); });
+    document.getElementById('plPlayAll')?.addEventListener('click', async () => {
+      try {
+        const data = await api('/playlists/' + pl.id);
+        State.queue = data.playlist.tracks;
+        State.queueIndex = 0;
+        loadCurrent(!canPlayFull());
+        toast('▶ Lecture de la playlist');
+      } catch (e) { toast(e.message); }
+    });
+    document.getElementById('renamePlBtn')?.addEventListener('click', () => renamePlModal(pl.id));
+  }
+
+  function mountPlaylistsView() {
+    document.getElementById('createPlBtn')?.addEventListener('click', () => createPlModal());
+
+    document.querySelectorAll('[data-open-pl]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.openPl;
+        State._playlistId = id;
+        State.view = 'playlistDetail';
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-del-pl]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('Supprimer cette playlist ?')) return;
+        try {
+          await api('/playlists/' + btn.dataset.delPl, { method: 'DELETE' });
+          toast('Playlist supprimée');
+          render();
+        } catch (err) { toast(err.message); }
+      });
+    });
+  }
+
+  function createPlModal(trackId) {
+    if (!State.user) { loginModal(); return; }
+    const m = el(`<div class="overlay">
+      <div class="modal">
+        <button class="modal-close" data-close>&times;</button>
+        <div class="modal-tag">📋 Nouvelle playlist</div>
+        <form id="createPlForm" style="margin-top:16px">
+          <input class="form-input" id="plNameInput" placeholder="Nom de la playlist" maxlength="60" required autofocus />
+          <button class="btn btn-gold btn-block" style="margin-top:12px" type="submit">Créer</button>
+          <div class="form-error" id="createPlErr"></div>
+        </form>
+      </div>
+    </div>`);
+    m.addEventListener('click', (e) => { if (e.target === m || e.target.dataset.close) { m.remove(); } });
+    m.querySelector('#createPlForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = m.querySelector('#plNameInput').value.trim();
+      if (!name) return;
+      try {
+        const r = await api('/playlists', { method: 'POST', body: { name } });
+        if (trackId) {
+          await api('/playlists/' + r.playlist.id + '/tracks', { method: 'POST', body: { trackId } });
+          toast('✓ Ajouté à "' + r.playlist.name + '"');
+        } else {
+          toast('✓ Playlist "' + r.playlist.name + '" créée');
+        }
+        m.remove();
+        if (State.view === 'playlists') render();
+      } catch (err) { m.querySelector('#createPlErr').textContent = err.message; }
+    });
+    $('#modalRoot').appendChild(m);
+    setTimeout(() => m.querySelector('#plNameInput').focus(), 50);
+  }
+
+  function renamePlModal(plId) {
+    const m = el(`<div class="overlay">
+      <div class="modal">
+        <button class="modal-close" data-close>&times;</button>
+        <div class="modal-tag">✏️ Renommer la playlist</div>
+        <form id="renamePlForm" style="margin-top:16px">
+          <input class="form-input" id="renamePlInput" placeholder="Nouveau nom" maxlength="60" required autofocus />
+          <button class="btn btn-gold btn-block" style="margin-top:12px" type="submit">Enregistrer</button>
+          <div class="form-error" id="renamePlErr"></div>
+        </form>
+      </div>
+    </div>`);
+    m.addEventListener('click', (e) => { if (e.target === m || e.target.dataset.close) m.remove(); });
+    m.querySelector('#renamePlForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = m.querySelector('#renamePlInput').value.trim();
+      if (!name) return;
+      try {
+        await api('/playlists/' + plId, { method: 'PATCH', body: { name } });
+        toast('✓ Playlist renommée');
+        m.remove();
+        render();
+      } catch (err) { m.querySelector('#renamePlErr').textContent = err.message; }
+    });
+    $('#modalRoot').appendChild(m);
+    setTimeout(() => m.querySelector('#renamePlInput').focus(), 50);
+  }
+
+  function addToPlaylistModal(trackId) {
+    if (!State.user) { loginModal(); return; }
+    api('/playlists').then((data) => {
+      const pls = data.playlists || [];
+      const m = el(`<div class="overlay">
+        <div class="modal">
+          <button class="modal-close" data-close>&times;</button>
+          <div class="modal-tag">📋 Ajouter à une playlist</div>
+          ${pls.length === 0
+            ? '<p style="color:var(--muted);margin:16px 0">Tu n\'as pas encore de playlist.</p>'
+            : `<div class="atpl-list">${pls.map((p) => `
+              <button class="atpl-item" data-atpl-id="${esc(p.id)}" data-atpl-name="${esc(p.name)}">
+                <span class="atpl-icon">♪</span>
+                <span class="atpl-name">${esc(p.name)}</span>
+                <span class="atpl-count">${fmtNum(p.trackCount)} titre${p.trackCount !== 1 ? 's' : ''}</span>
+              </button>`).join('')}
+            </div>`}
+          <button class="btn btn-outline btn-block" id="newPlFromAdd" style="margin-top:12px">+ Créer une nouvelle playlist</button>
+        </div>
+      </div>`);
+      m.addEventListener('click', async (e) => {
+        if (e.target === m || e.target.dataset.close) { m.remove(); return; }
+        const item = e.target.closest('[data-atpl-id]');
+        if (item) {
+          try {
+            await api('/playlists/' + item.dataset.atplId + '/tracks', { method: 'POST', body: { trackId } });
+            toast('✓ Ajouté à "' + item.dataset.atplName + '"');
+            m.remove();
+          } catch (err) {
+            if (err.message.includes('Déjà')) toast('Déjà dans cette playlist');
+            else toast(err.message);
+            m.remove();
+          }
+          return;
+        }
+        if (e.target.id === 'newPlFromAdd') { m.remove(); createPlModal(trackId); }
+      });
+      $('#modalRoot').appendChild(m);
+    }).catch(() => toast('Erreur lors du chargement des playlists'));
   }
 
   let _artistProfile = null;
@@ -2712,6 +2923,8 @@
     switch (State.view) {
       case 'search': c.innerHTML = await viewSearch(); break;
       case 'artistPage': c.innerHTML = await viewArtistPublic(); mountArtistPage(); break;
+      case 'playlists': c.innerHTML = await viewPlaylists(); mountPlaylistsView(); break;
+      case 'playlistDetail': c.innerHTML = await viewPlaylistDetail(); mountPlaylistDetail(); break;
       case 'music': c.innerHTML = viewMusic(); break;
       case 'videos': c.innerHTML = viewVideos(); break;
       case 'griot': c.innerHTML = viewGriot(); break;
@@ -3211,7 +3424,9 @@
       if (prevVid) return playVideo(prevVid.dataset.previewvideo, true);
       if (playBtn) return playTrack(playBtn.dataset.play);
       if (playVid) return playVideo(playVid.dataset.playvideo);
-      if (card && !playVid && !t.closest('[data-artist-page]')) return playTrack(card.dataset.track);
+      const plRow = t.closest('.pl-track-row[data-play]');
+      if (plRow && !t.closest('.pl-remove-track')) return playTrack(plRow.dataset.play);
+      if (card && !playVid && !t.closest('[data-artist-page]') && !t.closest('[data-addtopl]')) return playTrack(card.dataset.track);
       if (vcard) return playVideo(vcard.dataset.video);
       if (chip) {
         const g = chip.dataset.chip;
@@ -3226,6 +3441,16 @@
       if (viewBtn) return go(viewBtn.dataset.viewBtn);
       const adminTabBtn = t.closest('[data-admintab]');
       if (adminTabBtn) { adminTab = adminTabBtn.dataset.admintab; render(); return; }
+      const addToPlBtn = t.closest('[data-addtopl]');
+      if (addToPlBtn) { e.stopPropagation(); addToPlaylistModal(addToPlBtn.dataset.addtopl); return; }
+      const removeTrack = t.closest('[data-pl-id][data-track-id]');
+      if (removeTrack && removeTrack.classList.contains('pl-remove-track')) {
+        e.stopPropagation();
+        api('/playlists/' + removeTrack.dataset.plId + '/tracks/' + removeTrack.dataset.trackId, { method: 'DELETE' })
+          .then(() => { toast('Retiré de la playlist'); render(); })
+          .catch((err) => toast(err.message));
+        return;
+      }
       const artistPage = t.closest('[data-artist-page]');
       if (artistPage && artistPage.dataset.artistPage) {
         e.stopPropagation();

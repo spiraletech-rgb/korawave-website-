@@ -1550,3 +1550,58 @@ img { display: block; }
   .ap-actions { justify-content: center; }
   .ap-name { justify-content: center; }
 }
+
+/* ============================================================
+   PLAYLISTS
+   ============================================================ */
+.pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.pl-card {
+  background: var(--dark1); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px; display: flex; align-items: center; gap: 14px;
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+.pl-card:hover { border-color: var(--gold); background: var(--dark2); }
+.pl-icon { font-size: 28px; width: 48px; height: 48px; background: var(--gold-dim); border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; color: var(--gold); }
+.pl-info { flex: 1; min-width: 0; }
+.pl-name { font-weight: 700; color: var(--text); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.pl-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.pl-del { color: var(--muted2) !important; }
+.pl-del:hover { color: #e74c3c !important; }
+
+/* Playlist detail */
+.pl-detail-meta { font-size: 13px; color: var(--muted); margin: -8px 0 20px; }
+.pl-track-list { display: flex; flex-direction: column; gap: 4px; }
+.pl-track-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  border-radius: 10px; cursor: pointer; transition: background .15s;
+}
+.pl-track-row:hover { background: var(--dark1); }
+.ptr-num { width: 20px; text-align: right; color: var(--muted2); font-size: 13px; flex-shrink: 0; }
+.ptr-art { width: 40px; height: 40px; border-radius: 6px; background: var(--dark2); overflow: hidden; display: grid; place-items: center; flex-shrink: 0; color: var(--gold); font-size: 18px; }
+.ptr-art img { width: 100%; height: 100%; object-fit: cover; }
+.ptr-info { flex: 1; min-width: 0; }
+.ptr-title { font-weight: 600; color: var(--text); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptr-artist { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.ptr-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ptr-price { font-size: 12px; color: var(--muted2); }
+
+/* Add-to-playlist button on card */
+.pl-pill {
+  background: var(--dark1); border: 1px solid var(--border); border-radius: 20px;
+  color: var(--muted); font-size: 11px; padding: 2px 7px; cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.pl-pill:hover { border-color: var(--gold); color: var(--gold); }
+
+/* Add-to-playlist modal list */
+.atpl-list { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.atpl-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  background: var(--dark2); border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; transition: border-color .15s; text-align: left; width: 100%;
+}
+.atpl-item:hover { border-color: var(--gold); }
+.atpl-icon { font-size: 18px; color: var(--gold); flex-shrink: 0; }
+.atpl-name { flex: 1; font-weight: 600; color: var(--text); font-size: 14px; }
+.atpl-count { font-size: 12px; color: var(--muted); }
