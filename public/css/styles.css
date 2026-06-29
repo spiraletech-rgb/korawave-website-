@@ -1716,3 +1716,7 @@ img { display: block; }
 
 /* Banner fingerprint admin */
 .fp-admin-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--dark1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+
+/* Onglets connexion (OTP / Admin) */
+.login-tab { background: var(--dark2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 7px 12px; font-size: .82rem; transition: all .15s; }
+.login-tab.active { background: var(--gold-dim2); border-color: var(--gold); color: var(--gold); font-weight: 600; }

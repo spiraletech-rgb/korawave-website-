@@ -74,16 +74,303 @@
     toast._t = setTimeout(() => t.classList.remove('show'), 2600);
   }
 
-  // ---------- API ----------
+  // ---------- API NestJS ----------
+  const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:3000'
+    : (window.KW_API_URL || 'https://korawave-api.railway.app');
+
+  const KW_KOIN_PACKS = [
+    { id: 'p1', koins: 100, price: 10000, label: '100 KOINS' },
+    { id: 'p2', koins: 500, price: 45000, label: '500 KOINS' },
+    { id: 'p3', koins: 1000, price: 80000, label: '1000 KOINS' },
+  ];
+
+  function adaptTrack(t) {
+    if (!t) return null;
+    return {
+      id: t.id, title: t.title || '',
+      artist: t.artist_name || t.artist || '—',
+      ownerId: t.artist_id || t.ownerId || '',
+      artistId: t.artist_id || t.artistId || '',
+      audioUrl: t.audio_url || t.audioUrl || '',
+      videoUrl: t.video_url || t.videoUrl || '',
+      coverUrl: t.cover_url || t.coverUrl || '',
+      thumbUrl: t.thumbnail_url || t.thumbUrl || '',
+      genre: t.genre || '',
+      price: Number(t.price_gnf != null ? t.price_gnf : (t.price || 0)),
+      plays: Number(t.plays_count != null ? t.plays_count : (t.plays || 0)),
+      type: t.content_type || t.type || 'audio',
+      verified: !!(t.artist_verified || t.verified),
+      duration: t.duration_sec || t.duration || 0,
+      releaseAt: t.release_date || t.releaseAt || null,
+      likes: Number(t.likes_count != null ? t.likes_count : (t.likes || 0)),
+      shareEnabled: !!(t.shareEnabled),
+      fingerprint: t.fingerprint ? (typeof t.fingerprint === 'string' ? JSON.parse(t.fingerprint) : t.fingerprint) : null,
+    };
+  }
+
+  function adaptArtist(a) {
+    if (!a) return null;
+    return {
+      id: a.id,
+      name: a.name || a.display_name || '—',
+      bio: a.bio || '',
+      avatarUrl: a.avatar_url || a.avatarUrl || '',
+      country: a.country || 'GN',
+      verified: !!(a.verified),
+      userId: a.user_id || a.userId || '',
+      plays: Number(a.total_plays || a.plays || 0),
+      followers: Number(a.followers_count || a.followers || 0),
+      tracks: (a.tracks || []).map(adaptTrack),
+      videos: (a.videos || []).map(adaptTrack),
+    };
+  }
+
+  function adaptPlaylist(p) {
+    if (!p) return null;
+    return {
+      id: p.id, name: p.name,
+      userId: p.user_id || p.userId,
+      tracks: (p.tracks || []).map((pt) => ({ trackId: pt.track_id || pt.trackId, position: pt.position || 0 })),
+      createdAt: p.created_at || p.createdAt,
+    };
+  }
+
+  function adaptThread(t) {
+    if (!t) return null;
+    const partnerId = t.partner_id || t.partnerId;
+    const artistEntry = (State.tracks || []).find((tr) => tr.artistId === partnerId);
+    return {
+      partnerId,
+      partnerName: t.partner_name || (artistEntry && artistEntry.artist) || ('Utilisateur ' + (partnerId || '').slice(0, 6)),
+      lastMsg: t.last_message || t.lastMsg || '',
+      lastAt: t.last_at || t.lastAt || '',
+      unread: Number(t.unread || 0),
+    };
+  }
+
+  function adaptMessage(m) {
+    if (!m) return null;
+    return {
+      id: m.id,
+      from: m.sender_id || m.from,
+      fromId: m.sender_id || m.from,
+      to: m.receiver_id || m.to,
+      body: m.content || m.body || '',
+      read: !!(m.read),
+      at: m.created_at || m.at,
+      createdAt: m.created_at || m.at,
+    };
+  }
+
+  function adaptUser(u) {
+    if (!u) return null;
+    return {
+      id: u.id,
+      name: u.display_name || u.name || u.phone_number || u.email || 'Utilisateur',
+      artistName: u.display_name || u.name || '',
+      phone: u.phone_number || u.phone || '',
+      email: u.email || '',
+      role: u.role || 'user',
+      verified: !!(u.is_verified || u.verified),
+      koins: Number(u.koins || 0),
+      artistId: u.artistId || null,
+    };
+  }
+
+  function decodeToken(token) {
+    if (!token) return null;
+    try {
+      const raw = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const pad = raw + '=='.slice((raw.length % 4) || 4);
+      const p = JSON.parse(atob(pad));
+      if (p.exp && p.exp * 1000 < Date.now()) return null;
+      return adaptUser({ id: p.sub, display_name: p.name || p.display_name, phone_number: p.phone, email: p.email, role: p.role || 'user' });
+    } catch { return null; }
+  }
+
+  // Traduit les anciens chemins Express vers les routes NestJS /api/v1
+  function kwRoute(rawPath, method, reqBody) {
+    const qi = rawPath.indexOf('?');
+    const path = qi >= 0 ? rawPath.slice(0, qi) : rawPath;
+    const qs = qi >= 0 ? rawPath.slice(qi) : '';
+    const v1 = (p, q) => API_BASE + '/api/v1' + p + (q !== undefined ? q : qs);
+    const local = (val) => ({ local: val });
+
+    // ── AUTH ──────────────────────────────────────────────────────────────────
+    if (path === '/auth/request-otp' || path === '/auth/send-otp') {
+      return { url: v1('/auth/send-otp', ''), body: { phone_number: reqBody && (reqBody.phone || reqBody.phone_number) },
+        adapt: (d) => ({ ...d, _demo_code: d._demo_code || null }) };
+    }
+    if (path === '/auth/verify-otp') {
+      const fp = 'web-' + (navigator.userAgent || '').slice(0, 20).replace(/\s/g, '_');
+      return {
+        url: v1('/auth/verify-otp', ''),
+        body: { phone_number: reqBody && (reqBody.phone || reqBody.phone_number), otp_code: reqBody && (reqBody.code || reqBody.otp_code), device_fingerprint: (reqBody && reqBody.device_fingerprint) || fp },
+        adapt: (d) => ({ token: d.access_token || d.token, user: adaptUser(d.user) }),
+      };
+    }
+    if (path === '/auth/admin/login') {
+      return { url: v1('/auth/admin/login', ''), body: reqBody, adapt: (d) => ({ token: d.access_token || d.token, user: adaptUser(d.user) }) };
+    }
+    if (path === '/auth/me') {
+      const user = decodeToken(State.token);
+      if (!user) throw new Error('Session expirée');
+      return local({ user });
+    }
+
+    // ── ARTISTE INSCRIPTION ────────────────────────────────────────────────────
+    if (path === '/artist/apply') {
+      return {
+        url: v1('/artists', ''),
+        body: { name: reqBody && (reqBody.artistName || reqBody.name), bio: reqBody && reqBody.bio, user_id: State.user && State.user.id },
+        adapt: (d) => ({ token: State.token, user: Object.assign({}, State.user, { role: 'artist', artistName: d.name, artistId: d.id }) }),
+      };
+    }
+
+    // ── CATALOGUE ─────────────────────────────────────────────────────────────
+    if (path === '/tracks') return { url: v1('/tracks?limit=100', ''), adapt: (d) => ({ tracks: (d.data || d.tracks || []).map(adaptTrack) }) };
+    if (path === '/videos') return { url: v1('/tracks?content_type=video&limit=50', ''), adapt: (d) => ({ videos: (d.data || []).map(adaptTrack) }) };
+    if (path === '/top-guinee') return local({ champions: [] });
+    if (path === '/search') return { url: v1('/tracks/search', qs), adapt: (d) => ({ tracks: (Array.isArray(d) ? d : (d.data || [])).map(adaptTrack), artists: [] }) };
+
+    // ── PLAYLISTS ─────────────────────────────────────────────────────────────
+    if (path === '/playlists') {
+      if (method === 'GET') return { url: v1('/playlists', ''), adapt: (d) => ({ playlists: (Array.isArray(d) ? d : []).map(adaptPlaylist) }) };
+      if (method === 'POST') return { url: v1('/playlists', ''), body: { name: reqBody && reqBody.name }, adapt: (d) => ({ ok: true, playlist: adaptPlaylist(d) }) };
+    }
+    const plM = path.match(/^\/playlists\/([^/]+)(\/tracks)?(\/([^/]+))?$/);
+    if (plM) {
+      const plId = plM[1], hasTracks = plM[2], trackId = plM[4];
+      if (hasTracks && trackId && method === 'DELETE') return { url: v1('/playlists/' + plId + '/tracks/' + trackId, '') };
+      if (hasTracks && method === 'POST') return { url: v1('/playlists/' + plId + '/tracks', ''), body: { track_id: reqBody && (reqBody.trackId || reqBody.track_id) } };
+      if (!hasTracks && method === 'GET') return { url: v1('/playlists/' + plId, ''), adapt: (d) => ({ playlist: adaptPlaylist(d) }) };
+      if (!hasTracks && method === 'PATCH') return { url: v1('/playlists/' + plId, ''), body: { name: reqBody && reqBody.name } };
+      if (!hasTracks && method === 'DELETE') return { url: v1('/playlists/' + plId, '') };
+    }
+
+    // ── MESSAGES ──────────────────────────────────────────────────────────────
+    if (path === '/messages') {
+      if (method === 'GET') return { url: v1('/messages/threads', ''), adapt: (d) => ({ threads: (Array.isArray(d) ? d : []).map(adaptThread) }) };
+    }
+    if (path === '/messages/unread-count') {
+      return { url: v1('/messages/unread-count', ''), adapt: (d) => ({ count: typeof d === 'number' ? d : (d.count != null ? d.count : 0) }) };
+    }
+    const msgM = path.match(/^\/messages\/([^/]+)(\/read)?$/);
+    if (msgM) {
+      const pid = msgM[1];
+      if (msgM[2] && method === 'POST') return { url: v1('/messages/thread/' + pid + '/read', ''), body: {} };
+      if (method === 'GET') {
+        return { url: v1('/messages/thread/' + pid, ''), adapt: (d) => {
+          const msgs = Array.isArray(d) ? d : [];
+          const artistEntry = (State.tracks || []).find((tr) => tr.artistId === pid);
+          return { messages: msgs.map(adaptMessage), partner: { id: pid, name: (artistEntry && artistEntry.artist) || 'Artiste', verified: (artistEntry && artistEntry.verified) || false } };
+        }};
+      }
+      if (method === 'POST') {
+        return { url: v1('/messages', ''), body: { receiver_id: pid, content: reqBody && (reqBody.body || reqBody.content) },
+          adapt: (d) => ({ message: adaptMessage(d), ok: true }) };
+      }
+    }
+
+    // ── SOCIAL ────────────────────────────────────────────────────────────────
+    if (path === '/like') return { url: v1('/social/like', '') };
+    if (path === '/comments' && method === 'POST') return { url: v1('/social/comment', '') };
+    if (path.startsWith('/comments')) return { url: v1('/social/comments', qs) };
+
+    // ── BATTLES ───────────────────────────────────────────────────────────────
+    if (path === '/battles' && method === 'GET') return { url: v1('/battle/active', ''), adapt: (d) => ({ battles: d.battles || d.data || [] }) };
+    const btM = path.match(/^\/battles\/([^/]+)(\/vote)?$/);
+    if (btM) {
+      const bid = btM[1];
+      if (btM[2] && method === 'POST') return { url: v1('/battle/vote', ''), body: { battleId: bid, trackId: reqBody && reqBody.trackId } };
+      return { url: v1('/battle/' + bid, '') };
+    }
+
+    // ── EVENTS ────────────────────────────────────────────────────────────────
+    if (path === '/events') return { url: v1('/events', qs), adapt: (d) => ({ events: d.events || d.data || [] }) };
+    if (path === '/my-tickets') return { url: v1('/events/my-tickets', ''), adapt: (d) => ({ tickets: d.tickets || d.data || [] }) };
+    if (path === '/purchase-ticket') return { url: v1('/events/purchase/' + (reqBody && reqBody.eventId || ''), ''), body: {} };
+
+    // ── WALLET / KOINS ────────────────────────────────────────────────────────
+    if (path === '/wallet') return { url: v1('/koins/balance', ''), adapt: (d) => ({ balance: d.balance || d.koins || 0, transactions: d.transactions || [], owned: d.owned || [] }) };
+    if (path === '/koin-packs') return local({ packs: KW_KOIN_PACKS });
+    if (path === '/wallet/recharge') return { url: v1('/koins/recharge', '') };
+    if (path === '/purchase') return { url: v1('/purchases/initiate', ''), body: { content_type: reqBody && reqBody.contentType, content_id: reqBody && reqBody.contentId } };
+    if (path === '/purchase-pack') return { url: v1('/fanpack/purchase/' + (reqBody && reqBody.packId || ''), ''), body: {} };
+    if (path === '/tip') return { url: v1('/tipjar/send', '') };
+
+    // ── FAN PACKS ─────────────────────────────────────────────────────────────
+    if (path === '/fan-packs') return local({ packs: [] });
+    if (path === '/artist/fan-packs' && method === 'POST') return { url: v1('/fanpack/create', '') };
+
+    // ── ARTISTE (tableau de bord artiste) ─────────────────────────────────────
+    if (path === '/artist/stats') return { url: v1('/artists/me/dashboard', ''), adapt: (d) => ({ stats: d.stats || d, tracks: [], videos: [] }) };
+    if (path === '/artist/content') {
+      return { url: v1('/artists/me/tracks', ''), adapt: (d) => {
+        const all = (d.data || d.tracks || []).map(adaptTrack);
+        return { tracks: all.filter((t) => t.type === 'audio'), videos: all.filter((t) => t.type === 'video') };
+      }};
+    }
+    const apM = path.match(/^\/artists\/([^/]+)\/profile$/);
+    if (apM) return { url: v1('/artists/' + apM[1], ''), adapt: (d) => ({ profile: adaptArtist(d) }) };
+    const afM = path.match(/^\/artists\/([^/]+)\/follow$/);
+    if (afM) return { url: v1('/artists/' + afM[1] + '/follow', '') };
+
+    // ── FINGERPRINT ───────────────────────────────────────────────────────────
+    if (path === '/identify') return { url: v1('/tracks/identify', '') };
+    const fpM = path.match(/^\/tracks\/([^/]+)\/fingerprint$/);
+    if (fpM) return { url: v1('/tracks/' + fpM[1] + '/fingerprint', '') };
+
+    // ── NOTIFICATIONS (stub) ──────────────────────────────────────────────────
+    if (path === '/notifications') return local({ notifications: [], unread: 0 });
+    if (path === '/notifications/read') return local({ ok: true });
+
+    // ── PUSH (stub) ───────────────────────────────────────────────────────────
+    if (path === '/push/vapid-key') return local({ publicKey: null });
+    if (path === '/push/subscribe') return local({ ok: true });
+    if (path === '/push/test') return local({ ok: true });
+
+    // ── ADMIN ─────────────────────────────────────────────────────────────────
+    if (path === '/admin/stats') {
+      return { url: v1('/admin/dashboard', ''), adapt: (d) => ({ users: d.totalUsers || d.users || 0, artists: d.totalArtists || d.artists || 0, tracks: d.totalTracks || d.tracks || 0, videos: d.totalVideos || d.videos || 0, revenue: d.totalRevenue || d.revenue || 0, plays: d.totalPlays || d.plays || 0 }) };
+    }
+    if (path === '/admin/artists') return { url: v1('/admin/artists', ''), adapt: (d) => ({ artists: d.artists || d.data || d || [] }) };
+    if (path === '/admin/comments') return local({ comments: [] });
+    if (path === '/admin/users') return local({ users: [] });
+    if (path.match(/^\/admin\/users\/[^/]+$/)) return local({ ok: true });
+    if (path === '/admin/finance' || path.startsWith('/admin/finance?')) {
+      return { url: v1('/admin/revenue', qs || (reqBody && reqBody.period ? '?period=' + reqBody.period : '')) };
+    }
+    if (path === '/admin/battles' && method === 'POST') return { url: v1('/battle/create', '') };
+    if (path.match(/^\/admin\/battles\/[^/]+\/close$/)) return local({ ok: true });
+    if (path === '/admin/events' && method === 'POST') return { url: v1('/events/create', '') };
+
+    // ── SHARE ─────────────────────────────────────────────────────────────────
+    const shM = path.match(/^\/share\/([^/]+)$/);
+    if (shM) return { url: v1('/tracks/' + shM[1] + '/share', '') };
+
+    // Fallback : préfixe /api/v1 direct
+    return { url: v1(path, qs) };
+  }
+
   async function api(path, { method = 'GET', body, form } = {}) {
+    const route = kwRoute(path, method, body);
+    if ('local' in route) return route.local;
+
     const opts = { method, headers: {} };
     if (State.token) opts.headers.Authorization = 'Bearer ' + State.token;
+    const reqBody = 'body' in route ? route.body : body;
     if (form) { opts.body = form; }
-    else if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-    const res = await fetch('/api' + path, opts);
+    else if (reqBody) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(reqBody); }
+
+    const res = await fetch(route.url, opts);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Erreur serveur');
-    return data;
+    if (!res.ok) {
+      const msg = Array.isArray(data.message) ? data.message[0] : (data.message || data.error || 'Erreur ' + res.status);
+      throw new Error(msg);
+    }
+    return route.adapt ? route.adapt(data) : data;
   }
 
   // ============================================================
@@ -230,24 +517,47 @@
     const m = el(`
       <div class="overlay">
         <div class="modal">
-          ${authModalHeader('Ton son · Ton droit · Ta Guinée', 'Bon retour', 'Entre ton numéro pour recevoir un code de connexion.')}
-          <div class="otp-steps"><div class="otp-step active" id="ls1"></div><div class="otp-step" id="ls2"></div></div>
+          ${authModalHeader('Ton son · Ton droit · Ta Guinée', 'Bon retour', '')}
 
-          <div id="loginStep1">
-            <div class="field">
-              <label>Numéro de téléphone</label>
-              <input class="input" id="loginPhone" type="tel" placeholder="+224 6XX XX XX XX" autocomplete="tel" inputmode="tel" />
-            </div>
-            <button class="btn btn-gold btn-block" id="loginSendBtn">Recevoir le code →</button>
-            <div class="form-error" id="loginErr"></div>
+          <div class="login-tabs" style="display:flex;gap:8px;margin-bottom:18px">
+            <button class="btn btn-sm login-tab active" data-tab="otp" style="flex:1">Utilisateur</button>
+            <button class="btn btn-sm login-tab" data-tab="admin" style="flex:1">Admin</button>
           </div>
 
-          <div id="loginStep2" class="hidden">
-            <div class="otp-phone-display">Code envoyé au <strong id="loginPhoneDisplay"></strong></div>
-            <div class="otp-demo-box" id="loginDemoBox">Code de démo :<strong id="loginDemoCode"></strong></div>
-            ${OTP_BOXES}
-            <div class="form-error" id="loginOtpErr"></div>
-            <button class="otp-resend" id="loginResend">Renvoyer le code</button>
+          <!-- OTP tab -->
+          <div id="loginOtpTab">
+            <p style="color:var(--muted);font-size:.85rem;margin-bottom:14px">Entre ton numéro pour recevoir un code de connexion.</p>
+            <div class="otp-steps"><div class="otp-step active" id="ls1"></div><div class="otp-step" id="ls2"></div></div>
+            <div id="loginStep1">
+              <div class="field">
+                <label>Numéro de téléphone</label>
+                <input class="input" id="loginPhone" type="tel" placeholder="+224 6XX XX XX XX" autocomplete="tel" inputmode="tel" />
+              </div>
+              <button class="btn btn-gold btn-block" id="loginSendBtn">Recevoir le code →</button>
+              <div class="form-error" id="loginErr"></div>
+            </div>
+            <div id="loginStep2" class="hidden">
+              <div class="otp-phone-display">Code envoyé au <strong id="loginPhoneDisplay"></strong></div>
+              <div class="otp-demo-box" id="loginDemoBox">Code de démo :<strong id="loginDemoCode"></strong></div>
+              ${OTP_BOXES}
+              <div class="form-error" id="loginOtpErr"></div>
+              <button class="otp-resend" id="loginResend">Renvoyer le code</button>
+            </div>
+          </div>
+
+          <!-- Admin tab -->
+          <div id="loginAdminTab" class="hidden">
+            <p style="color:var(--muted);font-size:.85rem;margin-bottom:14px">Accès réservé aux administrateurs KORAWAVE.</p>
+            <div class="field">
+              <label>Email</label>
+              <input class="input" id="adminEmail" type="email" placeholder="admin@korawave.gn" autocomplete="email" />
+            </div>
+            <div class="field">
+              <label>Mot de passe</label>
+              <input class="input" id="adminPassword" type="password" placeholder="••••••••" autocomplete="current-password" />
+            </div>
+            <button class="btn btn-gold btn-block" id="adminLoginBtn">Se connecter →</button>
+            <div class="form-error" id="adminErr"></div>
           </div>
 
           <div class="modal-switch">Pas encore de compte ? <a data-switch="register">S'inscrire</a></div>
@@ -257,8 +567,21 @@
     m.addEventListener('click', (e) => { if (e.target === m || e.target.dataset.close !== undefined) closeModal(); });
     m.querySelector('[data-switch]').onclick = () => { closeModal(); registerModal(); };
 
-    let currentPhone = '';
+    // Tab switching
+    m.querySelectorAll('.login-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        m.querySelectorAll('.login-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        const isAdmin = tab.dataset.tab === 'admin';
+        m.querySelector('#loginOtpTab').classList.toggle('hidden', isAdmin);
+        m.querySelector('#loginAdminTab').classList.toggle('hidden', !isAdmin);
+        if (isAdmin) m.querySelector('#adminEmail').focus();
+        else m.querySelector('#loginPhone').focus();
+      });
+    });
 
+    // OTP flow
+    let currentPhone = '';
     const step1 = m.querySelector('#loginStep1');
     const step2 = m.querySelector('#loginStep2');
     const errEl = m.querySelector('#loginErr');
@@ -303,6 +626,31 @@
         m.querySelectorAll('.otp-digit')[0]?.focus();
       }
     });
+
+    // Admin flow
+    async function adminLogin() {
+      const email = m.querySelector('#adminEmail').value.trim();
+      const password = m.querySelector('#adminPassword').value;
+      const errAdm = m.querySelector('#adminErr');
+      errAdm.textContent = '';
+      if (!email || !password) { errAdm.textContent = 'Email et mot de passe requis.'; return; }
+      const btn = m.querySelector('#adminLoginBtn');
+      btn.disabled = true; btn.textContent = 'Connexion…';
+      try {
+        const { token, user } = await api('/auth/admin/login', { method: 'POST', body: { email, password } });
+        setSession(token, user);
+        closeModal();
+        toast('Bienvenue, ' + (user.name || 'Admin') + ' !');
+        State.view = 'dashboard'; setActiveNav();
+        await loadData(); render();
+      } catch (e) {
+        errAdm.textContent = e.message;
+        btn.disabled = false; btn.textContent = 'Se connecter →';
+      }
+    }
+
+    m.querySelector('#adminLoginBtn').onclick = adminLogin;
+    m.querySelector('#adminPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') adminLogin(); });
 
     $('#modalRoot').appendChild(m);
     m.querySelector('#loginPhone').focus();
