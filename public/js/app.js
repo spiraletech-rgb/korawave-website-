@@ -963,6 +963,69 @@
     });
   }
 
+  // ============================================================
+  //  NOTIFICATIONS PUSH (Web Push API)
+  // ============================================================
+
+  let _swReg = null;
+
+  async function initPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      _swReg = await navigator.serviceWorker.register('/sw.js');
+    } catch (e) { console.warn('SW non enregistré', e); }
+  }
+
+  async function subscribePush() {
+    if (!State.user) { loginModal(); return; }
+    if (!_swReg) { toast('Notifications non supportées par ce navigateur'); return; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast('Permission refusée'); return; }
+    try {
+      const { publicKey } = await api('/push/vapid-key');
+      const sub = await _swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      await api('/push/subscribe', { method: 'POST', body: { subscription: sub } });
+      toast('🔔 Notifications activées !');
+      updatePushBtn(true);
+    } catch (e) { toast('Erreur : ' + e.message); }
+  }
+
+  async function unsubscribePush() {
+    try {
+      if (_swReg) {
+        const sub = await _swReg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      }
+      await api('/push/subscribe', { method: 'DELETE' });
+      toast('Notifications désactivées');
+      updatePushBtn(false);
+    } catch (e) { toast(e.message); }
+  }
+
+  async function isPushSubscribed() {
+    if (!_swReg) return false;
+    try { return !!(await _swReg.pushManager.getSubscription()); }
+    catch { return false; }
+  }
+
+  function updatePushBtn(active) {
+    const btn = document.getElementById('pushToggleBtn');
+    if (!btn) return;
+    btn.textContent = active ? '🔔 Notifications activées' : '🔕 Activer les notifications';
+    btn.className = 'btn ' + (active ? 'btn-gold' : 'btn-outline') + ' btn-sm';
+    btn.dataset.pushActive = active ? '1' : '0';
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
+
   // Badge non-lus messagerie — polling 45s (réutilise le même intervalle que les notifs)
   let _msgBadgeTimer = null;
   function startMsgBadge() {
@@ -1201,6 +1264,7 @@
 
     const ownedCount = (w.owned.audio.length + w.owned.video.length);
 
+    const pushActive = await isPushSubscribed();
     return `
       <div class="wallet-hero">
         <div class="wallet-balance">
@@ -1209,6 +1273,12 @@
           <div class="sub">${fmtNum(ownedCount)} contenu(s) acheté(s) · ${fmtNum(w.totalPurchased)} KOINS rechargés au total</div>
         </div>
         <div class="wallet-note">1 000 GNF = 1 000 KOINS. Les KOINS n'expirent jamais et ne sont pas convertibles en argent (politique affichée à l'achat).</div>
+        <div class="wallet-push-row">
+          <button class="btn ${pushActive ? 'btn-gold' : 'btn-outline'} btn-sm" id="pushToggleBtn" data-push-active="${pushActive ? '1' : '0'}">
+            ${pushActive ? '🔔 Notifications activées' : '🔕 Activer les notifications'}
+          </button>
+          ${pushActive ? `<button class="btn btn-ghost btn-sm" id="pushTestBtn">Tester</button>` : ''}
+        </div>
       </div>
 
       <div class="sec-head"><h2>Recharger mes <span>KOINS</span></h2><span class="more">Bonus fidélité</span></div>
@@ -3081,6 +3151,11 @@
       case 'wallet':
         if (!State.user) { State.view = 'home'; c.innerHTML = viewHome(); mountSliders(); break; }
         c.innerHTML = await viewWallet();
+        document.getElementById('pushToggleBtn')?.addEventListener('click', async (e) => {
+          const active = e.currentTarget.dataset.pushActive === '1';
+          if (active) await unsubscribePush(); else await subscribePush();
+        });
+        document.getElementById('pushTestBtn')?.addEventListener('click', () => api('/push/test', { method: 'POST' }).then(() => toast('Notification de test envoyée !')).catch((err) => toast(err.message)));
         break;
       case 'battle':
         c.innerHTML = await viewBattle();
@@ -3670,6 +3745,8 @@
     await loadData();
     await render();
     loadNotifications();
+    initPush();
+    if (State.user) startMsgBadge();
     // polling léger des notifications (toutes les 45s)
     setInterval(() => { if (State.user) loadNotifications(); }, 45000);
   }

@@ -18,10 +18,33 @@ const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
+const webpush = require('web-push');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || 'korawave-dev-secret-change-me';
+
+// VAPID keys — générés une fois, stockés en DB
+(function initVapid() {
+  const data = db.read();
+  if (!data.vapid) {
+    data.vapid = webpush.generateVAPIDKeys();
+    db.write(data);
+    console.log('[VAPID] Clés générées');
+  }
+  webpush.setVapidDetails('mailto:admin@korawave.gn', data.vapid.publicKey, data.vapid.privateKey);
+})();
+
+function sendPush(subscription, payload) {
+  return webpush.sendNotification(subscription, JSON.stringify(payload)).catch(() => {});
+}
+
+function notifyFollowers(artistId, payload) {
+  const data = db.read();
+  const followerIds = (data.follows || []).filter((f) => f.artistId === artistId).map((f) => f.userId);
+  const subs = (data.pushSubscriptions || []).filter((s) => followerIds.includes(s.userId));
+  subs.forEach((s) => sendPush(s.subscription, payload));
+}
 
 // ---------------------------------------------------------------------------
 // Dossiers d'upload
@@ -987,6 +1010,14 @@ function createTrack(req, owner) {
   };
   data.tracks.push(track);
   db.write();
+  // Notifier les abonnés si c'est un artiste qui publie immédiatement
+  if (owner && isReleased(track)) {
+    notifyFollowers(owner.id, {
+      title: '🎵 Nouveau titre — ' + (owner.artistName || owner.name),
+      body: track.title + ' est maintenant disponible sur KORAWAVE',
+      url: '/',
+    });
+  }
   return { track };
 }
 
@@ -1011,6 +1042,13 @@ function createVideo(req, owner) {
   };
   data.videos.push(video);
   db.write();
+  if (owner && isReleased(video)) {
+    notifyFollowers(owner.id, {
+      title: '🎬 Nouveau clip — ' + (owner.artistName || owner.name),
+      body: video.title + ' est maintenant disponible sur KORAWAVE',
+      url: '/',
+    });
+  }
   return { video };
 }
 
@@ -1908,6 +1946,45 @@ app.get('/api/top-guinee', (req, res) => {
       };
     });
   res.json({ champions });
+});
+
+// ===========================================================================
+// NOTIFICATIONS PUSH (Web Push API)
+// ===========================================================================
+
+app.get('/api/push/vapid-key', (req, res) => {
+  const data = db.read();
+  res.json({ publicKey: data.vapid.publicKey });
+});
+
+app.post('/api/push/subscribe', auth(), (req, res) => {
+  const { subscription } = req.body;
+  if (!subscription?.endpoint) return res.status(400).json({ error: 'Abonnement invalide' });
+  const data = db.read();
+  if (!data.pushSubscriptions) data.pushSubscriptions = [];
+  // Remplacer si même endpoint existe déjà
+  const idx = data.pushSubscriptions.findIndex((s) => s.subscription.endpoint === subscription.endpoint);
+  const entry = { userId: req.user.id, subscription, updatedAt: new Date().toISOString() };
+  if (idx !== -1) data.pushSubscriptions[idx] = entry;
+  else data.pushSubscriptions.push(entry);
+  db.write(data);
+  res.json({ ok: true });
+});
+
+app.delete('/api/push/subscribe', auth(), (req, res) => {
+  const data = db.read();
+  data.pushSubscriptions = (data.pushSubscriptions || []).filter((s) => s.userId !== req.user.id);
+  db.write(data);
+  res.json({ ok: true });
+});
+
+// Test push pour l'utilisateur connecté
+app.post('/api/push/test', auth(), (req, res) => {
+  const data = db.read();
+  const subs = (data.pushSubscriptions || []).filter((s) => s.userId === req.user.id);
+  if (!subs.length) return res.status(404).json({ error: 'Pas d\'abonnement actif' });
+  subs.forEach((s) => sendPush(s.subscription, { title: 'KORAWAVE', body: '🎵 Les notifications sont activées !', url: '/' }));
+  res.json({ ok: true, sent: subs.length });
 });
 
 // ===========================================================================

@@ -1652,3 +1652,8 @@ img { display: block; }
 .dm-input { flex: 1; background: var(--dark1); border: 1px solid var(--border); border-radius: 24px; color: var(--text); font-size: 14px; padding: 10px 18px; outline: none; transition: border-color .15s; }
 .dm-input:focus { border-color: var(--gold); }
 .dm-send { border-radius: 24px; padding: 10px 20px; flex-shrink: 0; }
+
+/* ============================================================
+   BOUTON PUSH DANS WALLET
+   ============================================================ */
+.wallet-push-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
