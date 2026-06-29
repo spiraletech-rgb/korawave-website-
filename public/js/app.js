@@ -77,7 +77,7 @@
   // ---------- API NestJS ----------
   const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
     ? 'http://localhost:3000'
-    : (window.KW_API_URL || 'https://korawave-api.railway.app');
+    : (window.KW_API_URL || 'https://korawave-api.onrender.com');
 
   const KW_KOIN_PACKS = [
     { id: 'p1', koins: 100, price: 10000, label: '100 KOINS' },
