@@ -1988,6 +1988,81 @@ app.post('/api/push/test', auth(), (req, res) => {
 });
 
 // ===========================================================================
+// EXPORT CSV ADMIN
+// ===========================================================================
+
+function csvEsc(v) {
+  const s = String(v == null ? '' : v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function csvRow(...vals) { return vals.map(csvEsc).join(','); }
+function sendCsv(res, filename, rows) {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send('﻿' + rows.join('\r\n')); // BOM UTF-8 pour Excel
+}
+
+// Export transactions financières
+app.get('/api/admin/export/finance.csv', auth(), adminOnly, (req, res) => {
+  const data = db.read();
+  const period = parseInt(req.query.period, 10) || 30;
+  const since = new Date(Date.now() - period * 86400000);
+  const txs = (data.koinTransactions || [])
+    .filter((t) => new Date(t.createdAt) >= since)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const rows = [csvRow('Date', 'Type', 'Montant (KOINS)', 'Utilisateur', 'Artiste', 'Titre', 'Référence')];
+  txs.forEach((t) => {
+    const user = data.users.find((u) => u.id === t.userId);
+    const track = t.trackId ? data.tracks.find((x) => x.id === t.trackId) || data.videos.find((x) => x.id === t.trackId) : null;
+    const artist = track?.ownerId ? data.users.find((u) => u.id === track.ownerId) : null;
+    rows.push(csvRow(
+      t.createdAt, t.type, t.amount,
+      user?.name || user?.artistName || t.userId,
+      artist?.artistName || artist?.name || '',
+      track?.title || '',
+      t.paymentRef || t.id,
+    ));
+  });
+  sendCsv(res, `korawave-finance-${period}j.csv`, rows);
+});
+
+// Export liste des utilisateurs
+app.get('/api/admin/export/users.csv', auth(), adminOnly, (req, res) => {
+  const data = db.read();
+  const rows = [csvRow('ID', 'Nom', 'Artiste', 'Téléphone', 'Email', 'Rôle', 'KOINS', 'Vérifié', 'Banni', 'Inscrit le', 'Titres', 'Achats', 'Dépenses (KOINS)')];
+  data.users.forEach((u) => {
+    const tracks = (data.tracks || []).filter((t) => t.ownerId === u.id).length;
+    const purchases = (data.purchases || []).filter((p) => p.userId === u.id);
+    const spent = purchases.reduce((s, p) => s + (p.price || 0), 0);
+    rows.push(csvRow(
+      u.id, u.name || '', u.artistName || '', u.phone || '', u.email || '',
+      u.role, u.koins || 0, u.verified ? 'Oui' : 'Non', u.banned ? 'Oui' : 'Non',
+      u.createdAt, tracks, purchases.length, spent,
+    ));
+  });
+  sendCsv(res, 'korawave-utilisateurs.csv', rows);
+});
+
+// Export catalogue (titres + clips)
+app.get('/api/admin/export/catalogue.csv', auth(), adminOnly, (req, res) => {
+  const data = db.read();
+  const rows = [csvRow('ID', 'Type', 'Titre', 'Artiste', 'Genre', 'Prix (GNF)', 'Écoutes', 'Commentaires', 'Likes', 'Statut', 'Créé le')];
+  [...(data.tracks || []), ...(data.videos || [])].forEach((item) => {
+    const isVideo = !!item.videoUrl;
+    const comments = (data.comments || []).filter((c) => c.contentId === item.id && !c.deleted).length;
+    const likes = (data.likes || []).filter((l) => l.contentId === item.id).length;
+    const status = item.releaseAt && new Date(item.releaseAt) > new Date() ? 'Programmé' : 'Publié';
+    rows.push(csvRow(
+      item.id, isVideo ? 'Clip' : 'Audio', item.title, item.artist || '',
+      item.genre || '', item.price || 0, item.plays || 0, comments, likes, status, item.createdAt,
+    ));
+  });
+  sendCsv(res, 'korawave-catalogue.csv', rows);
+});
+
+// ===========================================================================
 // MESSAGERIE DM
 // ===========================================================================
 

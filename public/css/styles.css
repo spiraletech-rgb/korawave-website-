@@ -1657,3 +1657,6 @@ img { display: block; }
    BOUTON PUSH DANS WALLET
    ============================================================ */
 .wallet-push-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+/* Export CSV */
+.csv-dl { text-decoration: none; white-space: nowrap; }

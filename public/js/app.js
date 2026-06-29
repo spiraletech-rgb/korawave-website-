@@ -2578,8 +2578,11 @@
         panel.innerHTML = `
           <div class="fin-head">
             <h3>💶 Statistiques financières</h3>
-            <div class="period-tabs">
-              ${[7, 30, 90, 365].map((d) => `<button class="ptab ${period===d?'active':''}" data-finperiod="${d}">${d===365?'1 an':d+'j'}</button>`).join('')}
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div class="period-tabs">
+                ${[7, 30, 90, 365].map((d) => `<button class="ptab ${period===d?'active':''}" data-finperiod="${d}">${d===365?'1 an':d+'j'}</button>`).join('')}
+              </div>
+              <a class="btn btn-outline btn-sm csv-dl" href="/api/admin/export/finance.csv?period=${period}" download>⬇ CSV Transactions</a>
             </div>
           </div>
           <div class="fin-stats">
@@ -2662,6 +2665,8 @@
           <div class="user-filters">
             ${[['all','Tous',users.length],['user','Membres',countByRole('user')],['artist','Artistes',countByRole('artist')],['admin','Admins',countByRole('admin')]].map(([id,label,n]) => `
               <button class="subtab ${roleFilter===id?'active':''}" data-ufilt="${id}">${label} (${n})</button>`).join('')}
+            <a class="btn btn-outline btn-sm csv-dl" href="/api/admin/export/users.csv" download style="margin-left:auto">⬇ CSV Utilisateurs</a>
+            <a class="btn btn-outline btn-sm csv-dl" href="/api/admin/export/catalogue.csv" download>⬇ CSV Catalogue</a>
           </div>
           <div class="users-table">
             ${filtered.length ? filtered.map((u) => `
