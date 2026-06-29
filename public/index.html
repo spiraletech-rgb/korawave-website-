@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KORAWAVE — Ton son. Ton droit. Ta Guinée.</title>
+  <meta name="description" content="KORAWAVE — la plateforme de streaming musical de Guinée. Ton son, ton droit, ta Guinée." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400;1,9..40,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ============ TOPBAR (navigation horizontale) ============ -->
+    <header class="topbar" id="topbarEl">
+      <div class="tb-brand">
+        <img src="/img/logo.png" alt="KORAWAVE" class="brand-img"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+        <span class="brand-name" style="display:none">KORAWAVE</span>
+      </div>
+
+      <nav class="topnav" id="mainNav">
+        <button class="nav-item active" data-view="home"><span class="ic">🏠</span><span class="nl">Accueil</span></button>
+        <button class="nav-item" data-view="music"><span class="ic">🎵</span><span class="nl">Musique</span></button>
+        <button class="nav-item" data-view="videos"><span class="ic">🎬</span><span class="nl">Clips</span></button>
+        <button class="nav-item" data-view="griot"><span class="ic">🪕</span><span class="nl">Mode Griot</span></button>
+        <button class="nav-item nav-battle" data-view="battle"><span class="ic">⚔️</span><span class="nl">Battle</span></button>
+        <button class="nav-item nav-events" data-view="events"><span class="ic">🎟️</span><span class="nl">Events</span></button>
+      </nav>
+
+      <nav id="artistNav" class="topnav topnav-ctx" style="display:none">
+        <span class="tnav-sep"></span>
+        <button class="nav-item" data-view="artist"><span class="ic">🎤</span><span class="nl">Mon espace</span></button>
+      </nav>
+
+      <nav id="walletNav" class="topnav topnav-ctx" style="display:none">
+        <button class="nav-item" data-view="wallet"><span class="ic">💰</span><span class="nl">Portefeuille</span></button>
+      </nav>
+
+      <nav id="adminNav" class="topnav topnav-ctx" style="display:none">
+        <span class="tnav-sep"></span>
+        <button class="nav-item" data-view="dashboard"><span class="ic">📊</span><span class="nl">Dashboard</span></button>
+      </nav>
+
+      <nav id="becomeArtistNav" class="topnav topnav-ctx" style="display:none">
+        <button class="nav-item" id="becomeArtistBtn"><span class="ic">🎤</span><span class="nl">Devenir artiste</span></button>
+      </nav>
+
+      <div class="tb-right">
+        <div class="search">
+          <span>🔎</span>
+          <input id="searchInput" type="text" placeholder="Rechercher un titre, un artiste…" />
+        </div>
+        <div id="authButtons">
+          <button class="btn btn-ghost" id="openLogin">Se connecter</button>
+          <button class="btn btn-gold" id="openRegister">S'inscrire</button>
+        </div>
+        <div id="userZone" class="hidden">
+          <div class="bell-wrap">
+            <button class="bell-btn" id="bellBtn" title="Notifications">🔔<span class="bell-badge hidden" id="bellBadge">0</span></button>
+            <div class="bell-panel hidden" id="bellPanel"></div>
+          </div>
+          <div class="user-chip" id="userChip">
+            <div class="user-avatar" id="userAvatar">A</div>
+            <div>
+              <div class="uname" id="userName">—</div>
+              <div class="koins" id="userKoins">0 KOINS</div>
+            </div>
+          </div>
+          <button class="btn btn-ghost" id="logoutBtn" title="Déconnexion">⏻</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ============ BODY ROW ============ -->
+    <div class="body-row">
+
+      <!-- Panneau catégories -->
+      <aside class="cat-panel" id="catPanel">
+        <div class="cat-section">
+          <div class="cat-label">Catégories</div>
+          <button class="cat-item active" data-genre="Tous">Tous les genres</button>
+          <button class="cat-item" data-genre="Mandingue">🌍 Mandingue</button>
+          <button class="cat-item" data-genre="Afrobeats">🔥 Afrobeats</button>
+          <button class="cat-item" data-genre="Hip-hop">🎤 Hip-hop</button>
+          <button class="cat-item" data-genre="Reggae">🌴 Reggae</button>
+          <button class="cat-item" data-genre="Mode Griot">🪕 Mode Griot</button>
+          <button class="cat-item" data-genre="Jazz">🎷 Jazz</button>
+          <button class="cat-item" data-genre="Mamaya">🥁 Mamaya</button>
+          <button class="cat-item" data-genre="Faré-Gnakhi">🥁 Faré-Gnakhi</button>
+          <button class="cat-item" data-genre="Coupé-décalé">💃 Coupé-décalé</button>
+          <button class="cat-item" data-genre="Gospel">✝️ Gospel</button>
+          <button class="cat-item" data-genre="Blues">🎸 Blues</button>
+        </div>
+        <div class="cat-foot">
+          <p>© 2025 KORAWAVE<br /><span class="by">Spirale-tech</span><br />Conakry · Guinée</p>
+        </div>
+      </aside>
+
+      <!-- Contenu principal -->
+      <main class="main" id="main">
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <div class="content" id="content"><!-- vues injectées ici --></div>
+      </main>
+
+    </div><!-- /.body-row -->
+
+    <!-- ============ PLAYER BAR ============ -->
+    <footer class="player">
+      <div class="np">
+        <div class="np-art" id="npArt"><span class="ph">♪</span></div>
+        <div class="np-info">
+          <div class="np-title" id="npTitle"><span id="npTitleText">Aucune lecture</span> <span class="np-badge hidden" id="npPreview">APERÇU 10s</span></div>
+          <div class="np-artist" id="npArtist">Choisis un titre</div>
+        </div>
+        <button class="np-tip" id="npTip" title="Soutenir l'artiste (pourboire)" style="display:none">💝</button>
+        <button class="np-like" id="npLike" title="J'aime">♥</button>
+      </div>
+
+      <div class="player-center">
+        <div class="player-controls">
+          <button class="pc-btn" id="prevBtn">⏮</button>
+          <button class="pc-play" id="playBtn">▶</button>
+          <button class="pc-btn" id="nextBtn">⏭</button>
+        </div>
+        <div class="progress-row">
+          <span class="t" id="curTime">0:00</span>
+          <div class="progress" id="progress"><div class="progress-fill" id="progressFill"></div></div>
+          <span class="t" id="durTime">0:00</span>
+        </div>
+      </div>
+
+      <div class="player-right">
+        <span style="color:var(--muted2)">🔊</span>
+        <div class="vol"><input id="volume" type="range" min="0" max="100" value="80" /></div>
+      </div>
+    </footer>
+
+  </div><!-- /#app -->
+
+  <audio id="audioEl"></audio>
+
+  <div class="preview-banner hidden" id="previewBanner">
+    <span class="pb-ic">🔒</span>
+    <span id="previewMsg">Aperçu de 10 secondes terminé.</span>
+    <button class="btn btn-gold" id="previewUnlock">Écouter en entier</button>
+    <button class="pb-close" id="previewClose" title="Fermer">✕</button>
+  </div>
+
+  <div id="shareRoot" class="hidden"></div>
+  <div id="modalRoot"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
