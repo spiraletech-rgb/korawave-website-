@@ -21,6 +21,7 @@
     _artistFilter: null,
     _artistPageId: null,
     _playlistId: null,
+    _threadPartnerId: null,
     search: '',
     queue: [],
     queueIndex: -1,
@@ -90,7 +91,7 @@
   // ============================================================
   function setSession(token, user) {
     State.token = token; State.user = user;
-    if (token) localStorage.setItem('kw_token', token);
+    if (token) { localStorage.setItem('kw_token', token); startMsgBadge(); }
     renderAuthUI();
     loadNotifications();
   }
@@ -849,6 +850,137 @@
     }).catch(() => toast('Erreur lors du chargement des playlists'));
   }
 
+  // ============================================================
+  //  MESSAGERIE DM
+  // ============================================================
+
+  function fmtMsgTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return 'À l\'instant';
+    if (diff < 3600000) return Math.floor(diff / 60000) + ' min';
+    if (diff < 86400000) return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+    return d.getDate() + '/' + (d.getMonth() + 1);
+  }
+
+  async function viewMessages() {
+    if (!State.user) { loginModal(); return '<div class="empty">Connecte-toi pour accéder à ta messagerie.</div>'; }
+    const data = await api('/messages');
+    const threads = data.threads || [];
+    return `
+      <div class="dash-head">
+        <h1>💬 Messages</h1>
+        ${data.totalUnread > 0 ? `<span class="dm-unread-total">${data.totalUnread} non lu${data.totalUnread > 1 ? 's' : ''}</span>` : ''}
+      </div>
+      ${threads.length === 0
+        ? emptyBlock('💬', 'Aucune conversation. Envoie un message à un artiste depuis son profil.')
+        : `<div class="dm-thread-list">${threads.map((t) => `
+          <div class="dm-thread" data-open-thread="${esc(t.partnerId)}">
+            <div class="dm-avatar">${esc(initial(t.partnerName))}</div>
+            <div class="dm-info">
+              <div class="dm-name">
+                ${esc(t.partnerName)}
+                ${t.partnerRole === 'artist' ? '<span class="role-badge rb-artist">Artiste</span>' : ''}
+              </div>
+              <div class="dm-preview">${esc(t.lastMessage)}</div>
+            </div>
+            <div class="dm-meta">
+              <span class="dm-time">${fmtMsgTime(t.lastAt)}</span>
+              ${t.unread > 0 ? `<span class="dm-badge">${t.unread}</span>` : ''}
+            </div>
+          </div>`).join('')}
+        </div>`}
+    `;
+  }
+
+  async function viewThread() {
+    const partnerId = State._threadPartnerId;
+    if (!partnerId) { State.view = 'messages'; render(); return ''; }
+    let thread;
+    try { thread = await api('/messages/' + partnerId); }
+    catch (e) { return `<div class="empty">${esc(e.message)}</div>`; }
+    const me = State.user.id;
+    return `
+      <div class="dash-head">
+        <button class="btn btn-ghost btn-sm" id="backToMessages">← Messages</button>
+        <h1>💬 ${esc(thread.partner.name)}${thread.partner.verified ? ' <span class="verified-badge">✔</span>' : ''}</h1>
+      </div>
+      <div class="dm-bubble-list" id="dmBubbleList">
+        ${thread.messages.length === 0
+          ? `<div style="text-align:center;color:var(--muted);padding:40px 0">Aucun message. Dis bonjour !</div>`
+          : thread.messages.map((m) => {
+              const mine = m.fromId === me;
+              return `<div class="dm-bubble ${mine ? 'dm-mine' : 'dm-theirs'}">
+                <div class="dm-bubble-body">${esc(m.body)}</div>
+                <div class="dm-bubble-time">${fmtMsgTime(m.createdAt)}</div>
+              </div>`;
+            }).join('')}
+      </div>
+      <form class="dm-compose" id="dmComposeForm">
+        <input class="dm-input" id="dmInput" placeholder="Écris ton message…" maxlength="500" autocomplete="off" />
+        <button class="btn btn-gold dm-send" type="submit">Envoyer</button>
+      </form>
+    `;
+  }
+
+  function mountThread() {
+    document.getElementById('backToMessages')?.addEventListener('click', () => {
+      State.view = 'messages'; State._threadPartnerId = null; render();
+    });
+    const form = document.getElementById('dmComposeForm');
+    const input = document.getElementById('dmInput');
+    const list = document.getElementById('dmBubbleList');
+    // Scroll to bottom
+    if (list) list.scrollTop = list.scrollHeight;
+    if (input) setTimeout(() => input.focus(), 100);
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = input.value.trim();
+      if (!body) return;
+      try {
+        const r = await api('/messages/' + State._threadPartnerId, { method: 'POST', body: { body } });
+        input.value = '';
+        // Append bubble without full re-render
+        const bubble = el(`<div class="dm-bubble dm-mine">
+          <div class="dm-bubble-body">${esc(r.message.body)}</div>
+          <div class="dm-bubble-time">À l'instant</div>
+        </div>`);
+        list.appendChild(bubble);
+        list.scrollTop = list.scrollHeight;
+      } catch (err) { toast(err.message); }
+    });
+  }
+
+  function mountMessagesView() {
+    document.querySelectorAll('[data-open-thread]').forEach((row) => {
+      row.addEventListener('click', () => {
+        State._threadPartnerId = row.dataset.openThread;
+        State.view = 'thread';
+        render();
+      });
+    });
+  }
+
+  // Badge non-lus messagerie — polling 45s (réutilise le même intervalle que les notifs)
+  let _msgBadgeTimer = null;
+  function startMsgBadge() {
+    if (_msgBadgeTimer) return;
+    async function refresh() {
+      if (!State.user) return;
+      try {
+        const r = await api('/messages/unread-count');
+        const badge = document.getElementById('msgBadge');
+        if (!badge) return;
+        if (r.count > 0) { badge.textContent = r.count; badge.classList.remove('hidden'); }
+        else badge.classList.add('hidden');
+      } catch (_) {}
+    }
+    refresh();
+    _msgBadgeTimer = setInterval(refresh, 45000);
+  }
+
   let _artistProfile = null;
 
   async function viewArtistPublic() {
@@ -881,6 +1013,7 @@
             <button class="btn ${p.isFollowing ? 'btn-outline ap-following' : 'btn-gold'}" id="followBtn">
               ${p.isFollowing ? '✓ Suivi' : '+ Suivre'}
             </button>
+            ${State.user && State.user.id !== p.id ? `<button class="btn btn-outline" id="msgArtistBtn" data-msg-partner="${p.id}">💬 Message</button>` : ''}
             ${p.tracks.length ? `<button class="btn btn-outline" id="playAllBtn">▶ Tout écouter</button>` : ''}
           </div>
         </div>
@@ -2925,6 +3058,8 @@
       case 'artistPage': c.innerHTML = await viewArtistPublic(); mountArtistPage(); break;
       case 'playlists': c.innerHTML = await viewPlaylists(); mountPlaylistsView(); break;
       case 'playlistDetail': c.innerHTML = await viewPlaylistDetail(); mountPlaylistDetail(); break;
+      case 'messages': c.innerHTML = await viewMessages(); mountMessagesView(); break;
+      case 'thread': c.innerHTML = await viewThread(); mountThread(); break;
       case 'music': c.innerHTML = viewMusic(); break;
       case 'videos': c.innerHTML = viewVideos(); break;
       case 'griot': c.innerHTML = viewGriot(); break;
@@ -3441,6 +3576,12 @@
       if (viewBtn) return go(viewBtn.dataset.viewBtn);
       const adminTabBtn = t.closest('[data-admintab]');
       if (adminTabBtn) { adminTab = adminTabBtn.dataset.admintab; render(); return; }
+      const msgPartner = t.closest('[data-msg-partner]');
+      if (msgPartner) {
+        if (!State.user) { loginModal(); return; }
+        State._threadPartnerId = msgPartner.dataset.msgPartner;
+        State.view = 'thread'; setActiveNav(); render(); return;
+      }
       const addToPlBtn = t.closest('[data-addtopl]');
       if (addToPlBtn) { e.stopPropagation(); addToPlaylistModal(addToPlBtn.dataset.addtopl); return; }
       const removeTrack = t.closest('[data-pl-id][data-track-id]');

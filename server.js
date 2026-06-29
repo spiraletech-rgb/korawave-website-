@@ -1911,6 +1911,81 @@ app.get('/api/top-guinee', (req, res) => {
 });
 
 // ===========================================================================
+// MESSAGERIE DM
+// ===========================================================================
+
+// Liste des conversations (dernier message + nb non-lus par thread)
+app.get('/api/messages', auth(), (req, res) => {
+  const data = db.read();
+  const msgs = (data.messages || []).filter((m) => m.fromId === req.user.id || m.toId === req.user.id);
+  const threadMap = {};
+  msgs.forEach((m) => {
+    const partnerId = m.fromId === req.user.id ? m.toId : m.fromId;
+    if (!threadMap[partnerId]) threadMap[partnerId] = { messages: [], unread: 0 };
+    threadMap[partnerId].messages.push(m);
+    if (m.toId === req.user.id && !m.read) threadMap[partnerId].unread++;
+  });
+  const threads = Object.entries(threadMap).map(([partnerId, t]) => {
+    const partner = data.users.find((u) => u.id === partnerId);
+    const last = t.messages.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+    return {
+      partnerId, unread: t.unread,
+      partnerName: partner?.artistName || partner?.name || 'Inconnu',
+      partnerRole: partner?.role || 'user',
+      lastMessage: last?.body?.slice(0, 80) || '',
+      lastAt: last?.createdAt || '',
+    };
+  }).sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+  const totalUnread = threads.reduce((s, t) => s + t.unread, 0);
+  res.json({ threads, totalUnread });
+});
+
+// Thread complet avec un partenaire
+app.get('/api/messages/:partnerId', auth(), (req, res) => {
+  const data = db.read();
+  const partner = data.users.find((u) => u.id === req.params.partnerId);
+  if (!partner) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  const msgs = (data.messages || [])
+    .filter((m) => (m.fromId === req.user.id && m.toId === partner.id) || (m.fromId === partner.id && m.toId === req.user.id))
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  // Marquer comme lus
+  let changed = false;
+  msgs.forEach((m) => { if (m.toId === req.user.id && !m.read) { m.read = true; changed = true; } });
+  if (changed) db.write(data);
+  res.json({
+    partner: { id: partner.id, name: partner.artistName || partner.name, role: partner.role, verified: !!partner.verified },
+    messages: msgs,
+  });
+});
+
+// Envoyer un message
+app.post('/api/messages/:partnerId', auth(), (req, res) => {
+  const { body } = req.body;
+  if (!body || !body.trim()) return res.status(400).json({ error: 'Message vide' });
+  if (body.trim().length > 500) return res.status(400).json({ error: 'Message trop long (500 car. max)' });
+  const data = db.read();
+  const partner = data.users.find((u) => u.id === req.params.partnerId);
+  if (!partner) return res.status(404).json({ error: 'Destinataire introuvable' });
+  if (partner.id === req.user.id) return res.status(400).json({ error: 'Tu ne peux pas t\'écrire à toi-même' });
+  if (!data.messages) data.messages = [];
+  const msg = { id: crypto.randomUUID(), fromId: req.user.id, toId: partner.id, body: body.trim(), read: false, createdAt: new Date().toISOString() };
+  data.messages.push(msg);
+  // Notif bell pour le destinataire
+  if (!data.notifications) data.notifications = [];
+  const sender = data.users.find((u) => u.id === req.user.id);
+  data.notifications.push({ id: crypto.randomUUID(), userId: partner.id, type: 'message', icon: '💬', text: (sender?.artistName || sender?.name || 'Quelqu\'un') + ' t\'a envoyé un message', link: req.user.id, read: false, createdAt: new Date().toISOString() });
+  db.write(data);
+  res.json({ message: msg });
+});
+
+// Nb de messages non lus (pour le badge nav)
+app.get('/api/messages/unread-count', auth(), (req, res) => {
+  const data = db.read();
+  const count = (data.messages || []).filter((m) => m.toId === req.user.id && !m.read).length;
+  res.json({ count });
+});
+
+// ===========================================================================
 // PLAYLISTS
 // ===========================================================================
 
