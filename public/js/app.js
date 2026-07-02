@@ -914,8 +914,8 @@
           <h1>La musique guinéenne, <em>enfin chez elle</em>.</h1>
           <p>KORAWAVE est la première plateforme de streaming pensée pour la Guinée : paiement par Orange Money et MTN MoMo, écoute protégée par DRM, et une rémunération directe pour chaque artiste, à chaque écoute.</p>
           <div class="hero-cta">
-            ${State.user ? '' : '<button class="btn btn-gold" id="heroRegister">Créer un compte gratuit</button>'}
-            <button class="btn btn-outline" data-view-btn="music">Découvrir les artistes</button>
+            <button class="btn btn-gold" id="heroDownload">Télécharger</button>
+            <button class="btn btn-outline" id="heroProBtn">Korawave Pro</button>
           </div>
           <button class="radio-btn-hero" id="radioBtn"><span class="dot"></span> Radio KORAWAVE — Lance une playlist selon ton humeur</button>
           <div class="hero-stats">
@@ -977,6 +977,8 @@
   }
 
   function mountSliders() {
+    document.getElementById('heroDownload')?.addEventListener('click', () => go('download'));
+    document.getElementById('heroProBtn')?.addEventListener('click', () => go('korawave-pro'));
     document.querySelectorAll('[data-sl-prev],[data-sl-next]').forEach(btn => {
       const isPrev = btn.hasAttribute('data-sl-prev');
       const id = isPrev ? btn.dataset.slPrev : btn.dataset.slNext;
@@ -3672,10 +3674,136 @@
       case 'events':
         c.innerHTML = await viewEvents();
         break;
+      case 'download':
+        c.innerHTML = viewDownload();
+        break;
+      case 'korawave-pro':
+        c.innerHTML = viewKorawavePro();
+        break;
       default: c.innerHTML = viewHome(); mountSliders();
     }
     c.scrollTo?.(0, 0);
     $('#main').scrollTop = 0;
+  }
+
+  // ============================================================
+  //  PAGE TÉLÉCHARGER
+  // ============================================================
+  function viewDownload() {
+    return `
+      <div class="dl-page">
+        <div class="dl-hero">
+          <div class="dl-eyebrow">Télécharger</div>
+          <div class="dl-logo-big"><span class="dl-kora">KORA</span><span class="dl-wave">WAVE</span></div>
+          <p class="dl-tagline">Ta musique. Tes droits.<br>Tes revenus.</p>
+        </div>
+        <div class="dl-body">
+          <h2 class="dl-body-title">Écoutez toutes les musiques guinéennes sur votre mobile et votre tablette</h2>
+          <p class="dl-body-sub">Disponible sur iOS, Android et Windows. Gratuit à télécharger.</p>
+          <div class="dl-badges">
+            <a class="dl-badge" href="https://apps.apple.com" target="_blank" rel="noopener">
+              <svg viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg" height="44">
+                <rect width="120" height="40" rx="6" fill="#000"/>
+                <text x="38" y="13" fill="#fff" font-size="7" font-family="sans-serif">Télécharger dans</text>
+                <text x="38" y="26" fill="#fff" font-size="12" font-family="sans-serif" font-weight="bold">l'App Store</text>
+                <text x="10" y="28" fill="#fff" font-size="22" font-family="sans-serif"></text>
+              </svg>
+            </a>
+            <a class="dl-badge" href="https://play.google.com" target="_blank" rel="noopener">
+              <svg viewBox="0 0 135 40" xmlns="http://www.w3.org/2000/svg" height="44">
+                <rect width="135" height="40" rx="6" fill="#000"/>
+                <text x="42" y="13" fill="#fff" font-size="7" font-family="sans-serif">DISPONIBLE SUR</text>
+                <text x="42" y="26" fill="#fff" font-size="12" font-family="sans-serif" font-weight="bold">Google Play</text>
+                <text x="10" y="28" fill="#9cf" font-size="22" font-family="sans-serif">▶</text>
+              </svg>
+            </a>
+            <a class="dl-badge" href="https://apps.microsoft.com" target="_blank" rel="noopener">
+              <svg viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg" height="44">
+                <rect width="130" height="40" rx="6" fill="#000"/>
+                <text x="42" y="13" fill="#fff" font-size="7" font-family="sans-serif">Obtenir sur</text>
+                <text x="42" y="26" fill="#fff" font-size="12" font-family="sans-serif" font-weight="bold">Microsoft</text>
+                <rect x="10" y="9" width="10" height="10" fill="#f35"/>
+                <rect x="21" y="9" width="10" height="10" fill="#4c4"/>
+                <rect x="10" y="20" width="10" height="10" fill="#48f"/>
+                <rect x="21" y="20" width="10" height="10" fill="#fa0"/>
+              </svg>
+            </a>
+          </div>
+          <div class="dl-features">
+            <div class="dl-feat"><span class="dl-feat-icon">🎵</span><strong>53+ titres</strong><span>musique guinéenne</span></div>
+            <div class="dl-feat"><span class="dl-feat-icon">📶</span><strong>Mode 2G</strong><span>optimisé pour la Guinée</span></div>
+            <div class="dl-feat"><span class="dl-feat-icon">💰</span><strong>500 GNF</strong><span>par titre, Orange Money & MTN</span></div>
+            <div class="dl-feat"><span class="dl-feat-icon">🔒</span><strong>DRM 8 couches</strong><span>écoute protégée</span></div>
+          </div>
+          <button class="btn btn-outline" style="margin-top:32px" onclick="State.view='home';render()">← Retour à l'accueil</button>
+        </div>
+      </div>`;
+  }
+
+  // ============================================================
+  //  PAGE KORAWAVE PRO
+  // ============================================================
+  function viewKorawavePro() {
+    return `
+      <div class="pro-page">
+        <div class="pro-hero">
+          <div class="pro-badge">APPLICATION DESKTOP</div>
+          <div class="pro-logo"><span>KORAWAVE</span><span class="pro-tag-big">PRO</span></div>
+          <p class="pro-tagline">La station de mixage professionnelle<br>pour DJs et établissements en Guinée.</p>
+        </div>
+        <div class="pro-body">
+          <div class="pro-features-grid">
+            <div class="pro-feat-card">
+              <div class="pro-feat-icon">🎛️</div>
+              <h3>Table de mixage intégrée</h3>
+              <p>2 platines virtuelles, crossfader, EQ 3 bandes, effets BPM. Interface pensée pour les DJs professionnels.</p>
+            </div>
+            <div class="pro-feat-card">
+              <div class="pro-feat-icon">📚</div>
+              <h3>Catalogue KORAWAVE complet</h3>
+              <p>Accès illimité à tout le catalogue. Téléchargement offline pour jouer sans connexion lors de tes sets.</p>
+            </div>
+            <div class="pro-feat-card">
+              <div class="pro-feat-icon">🔑</div>
+              <h3>Licence par établissement</h3>
+              <p>Licence légale pour restaurants, hôtels, maquis et clubs. Conformité DRM garantie, code KWPRO-XXXX.</p>
+            </div>
+            <div class="pro-feat-card">
+              <div class="pro-feat-icon">📊</div>
+              <h3>Statistiques en temps réel</h3>
+              <p>Suivi des écoutes, revenus reversés aux artistes, historique de tes sets. Tableaux de bord avancés.</p>
+            </div>
+            <div class="pro-feat-card">
+              <div class="pro-feat-icon">🎤</div>
+              <h3>Plugin micro & effets voix</h3>
+              <p>Intégration micro USB, auto-tune léger, écho et reverb pour animer tes soirées comme un vrai MC.</p>
+            </div>
+            <div class="pro-feat-card">
+              <div class="pro-feat-icon">💾</div>
+              <h3>Mode hors-ligne complet</h3>
+              <p>Télécharge ta sélection et joue sans connexion internet. Synchronisation automatique dès que tu es en ligne.</p>
+            </div>
+          </div>
+          <div class="pro-cta-block">
+            <div class="pro-price-block">
+              <div class="pro-price">50 000 <span>GNF</span></div>
+              <div class="pro-price-label">/ mois · licence établissement</div>
+            </div>
+            <div class="pro-dl-block">
+              <div class="pro-dl-label">Télécharger KORAWAVE PRO pour Windows</div>
+              <a class="btn btn-gold pro-dl-btn" href="#" onclick="event.preventDefault();alert('Le téléchargement de KORAWAVE PRO sera bientôt disponible. Contactez spiraletech@gmail.com pour accès anticipé.')">
+                Télécharger KORAWAVE PRO
+              </a>
+              <div class="pro-dl-req">Windows 10/11 · 64-bit · 250 MB</div>
+            </div>
+            <div class="pro-login-block">
+              <p>Déjà abonné ? Connecte-toi sur l'app avec ton numéro KORAWAVE et ton code de licence.</p>
+              <button class="btn btn-outline" onclick="loginModal()">Se connecter</button>
+            </div>
+          </div>
+          <button class="btn btn-outline" style="margin-top:32px" onclick="State.view='home';render()">← Retour à l'accueil</button>
+        </div>
+      </div>`;
   }
 
   // ============================================================
