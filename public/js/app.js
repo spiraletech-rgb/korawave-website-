@@ -3719,7 +3719,7 @@
   async function render() {
     const c = $('#content');
     switch (State.view) {
-      case 'search': c.innerHTML = await viewSearch(); break;
+      case 'search': c.innerHTML = `<div class="dash-head"><h1>Recherche</h1><p style="color:var(--muted)">Recherche en cours…</p></div>`; c.innerHTML = await viewSearch(); break;
       case 'artistPage': c.innerHTML = await viewArtistPublic(); mountArtistPage(); break;
       case 'playlists': c.innerHTML = await viewPlaylists(); mountPlaylistsView(); break;
       case 'playlistDetail': c.innerHTML = await viewPlaylistDetail(); mountPlaylistDetail(); break;

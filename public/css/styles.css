@@ -1958,8 +1958,8 @@ img { display: block; }
   .msb-input {
     flex: 1; height: 38px; border-radius: 22px;
     border: 1px solid var(--border); background: var(--dark2);
-    color: var(--text); padding: 0 14px; font-size: 13.5px;
-    font-family: var(--serif); outline: none;
+    color: var(--text); padding: 0 14px; font-size: 16px;
+    font-family: var(--serif); outline: none; touch-action: manipulation;
   }
   .msb-input:focus { border-color: var(--gold); }
   .msb-input::placeholder { color: var(--muted2); }
