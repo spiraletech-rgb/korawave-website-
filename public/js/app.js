@@ -917,7 +917,6 @@
             <button class="btn btn-gold" id="heroDownload">Télécharger</button>
             <button class="btn btn-outline" id="heroProBtn">Korawave Pro</button>
           </div>
-          <button class="radio-btn-hero" id="radioBtn"><span class="dot"></span> Radio KORAWAVE — Lance une playlist selon ton humeur</button>
           <div class="hero-stats">
             <div class="hs"><span class="hs-val gold">50%</span><span class="hs-lab">reversés à l'artiste</span></div>
             <div class="hs"><span class="hs-val gold">500 GNF</span><span class="hs-lab">par titre audio</span></div>
