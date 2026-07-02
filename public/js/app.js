@@ -1650,12 +1650,21 @@
       `;
     }
 
-    // Aucun résultat local — fallback API (cold start possible)
+    // Si les données sont chargées et la recherche locale ne trouve rien → c'est absent
+    if (State.tracks.length > 0 || State.videos.length > 0) {
+      return `
+        <div class="dash-head"><h1>Recherche <span>"${esc(q)}"</span></h1><p>Aucun résultat.</p></div>
+        ${emptyBlock('🔎', 'Essaie un autre mot-clé ou vérifie l\'orthographe.')}`;
+    }
+
+    // Données pas encore chargées — fallback API
     let data;
     try {
       data = await api('/search?q=' + encodeURIComponent(q));
     } catch (e) {
-      return `<div class="empty">${esc(e.message)}</div>`;
+      return `
+        <div class="dash-head"><h1>Recherche <span>"${esc(q)}"</span></h1><p>Aucun résultat.</p></div>
+        ${emptyBlock('🔎', 'Essaie un autre mot-clé ou vérifie l\'orthographe.')}`;
     }
     const total = data.artists.length + data.tracks.length + data.videos.length;
     if (!total) return `
