@@ -1626,6 +1626,31 @@
     if (!q || q.length < 2) {
       return `<div class="dash-head"><h1>Recherche</h1><p>Tape au moins 2 caractères.</p></div>`;
     }
+
+    // Recherche locale immédiate dans les données déjà chargées
+    const lTracks = filteredTracks();
+    const lVideos = filteredVideos();
+    if (lTracks.length || lVideos.length) {
+      const total = lTracks.length + lVideos.length;
+      return `
+        <div class="dash-head">
+          <h1>Résultats <span>"${esc(q)}"</span></h1>
+          <p>${total} résultat(s)</p>
+        </div>
+        ${lTracks.length ? `
+          <div class="search-section">
+            <h2 class="section-title">Titres audio</h2>
+            <div class="card-grid">${lTracks.map(trackCard).join('')}</div>
+          </div>` : ''}
+        ${lVideos.length ? `
+          <div class="search-section">
+            <h2 class="section-title">Clips vidéo</h2>
+            <div class="card-grid">${lVideos.map(videoCard).join('')}</div>
+          </div>` : ''}
+      `;
+    }
+
+    // Aucun résultat local — fallback API (cold start possible)
     let data;
     try {
       data = await api('/search?q=' + encodeURIComponent(q));
