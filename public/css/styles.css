@@ -1786,3 +1786,109 @@ img { display: block; }
 .pro-dl-req { font-size: .72rem; color: var(--muted2); }
 .pro-login-block { border-top: 1px solid var(--border); padding-top: 24px; width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .pro-login-block p { font-size: .85rem; color: var(--muted); }
+
+/* ============================================================
+   RESPONSIVE COMPLÉMENTS — TABLETTE (769–1024px)
+   ============================================================ */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Topbar — réduit légèrement */
+  .search { width: 180px; }
+  .content { padding: 12px 22px 40px; }
+
+  /* Hero tablette — horizontal mais plus compact */
+  .hero { gap: 24px; padding: 28px 0 24px; }
+  .hero-disc { width: 240px; height: 240px; }
+  .disc-vinyl { width: 210px; height: 210px; }
+  .hero-text h1 { font-size: clamp(26px, 3.5vw, 38px); }
+
+  /* Cards — colonnes adaptées */
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 14px; }
+
+  /* Stats */
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* Player */
+  .player { padding: 0 14px; }
+}
+
+/* ============================================================
+   RESPONSIVE COMPLÉMENTS — MOBILE (≤ 768px) AJOUTS
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Hamburger — s'affiche sur mobile */
+  .hamburger { display: flex; }
+
+  /* Cache le disque vinyle sur mobile (trop grand) */
+  .hero-disc { display: none; }
+  .hero { align-items: flex-start; }
+
+  /* Hero stats — empilé sur mobile */
+  .hero-stats { gap: 14px; margin-top: 16px; padding-top: 14px; }
+  .hs { flex-direction: row; align-items: baseline; gap: 8px; }
+  .hs-val { font-size: 17px; }
+
+  /* Radio btn hero compact */
+  .radio-btn-hero { font-size: 11.5px; }
+
+  /* Slider — cards plus petites */
+  .sl-track > .card { width: 148px; }
+  .sl-track > .fp-card { width: 200px; }
+
+  /* Section head */
+  .slider-head { flex-wrap: wrap; gap: 8px; }
+  .slider-head h2 { font-size: 18px; }
+
+  /* Page Télécharger */
+  .dl-hero { padding: 44px 16px 32px; }
+  .dl-logo-big { font-size: clamp(44px, 14vw, 72px); margin-bottom: 16px; }
+  .dl-tagline { font-size: 1rem; }
+  .dl-body { padding: 36px 16px 40px; }
+  .dl-body-title { font-size: 1.1rem; }
+  .dl-features { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dl-feat { padding: 14px 12px; }
+
+  /* Page Korawave Pro */
+  .pro-hero { padding: 44px 16px 36px; }
+  .pro-logo { font-size: clamp(32px, 10vw, 52px); gap: 8px; }
+  .pro-tagline { font-size: .95rem; }
+  .pro-body { padding: 36px 16px 40px; }
+  .pro-features-grid { grid-template-columns: 1fr; gap: 14px; }
+  .pro-cta-block { padding: 24px 16px; gap: 24px; }
+  .pro-price { font-size: 2rem; }
+
+  /* Topbar — compact sur mobile */
+  .topnav { max-width: calc(100vw - 280px); }
+}
+
+/* ============================================================
+   RESPONSIVE COMPLÉMENTS — TRÈS PETIT MOBILE (≤ 420px)
+   ============================================================ */
+@media (max-width: 420px) {
+  /* Topbar ultra-compact */
+  .search { width: 110px; }
+  .search input::placeholder { font-size: 11px; }
+  #authButtons .btn { padding: 6px 9px; font-size: 11px; }
+  .brand-name { font-size: 15px; letter-spacing: 0; }
+
+  /* Cache le texte des onglets de nav (icône seulement) */
+  .nav-item .nl { display: none; }
+  .nav-item { padding: 6px 8px; }
+
+  /* Download page — badges en colonne */
+  .dl-badges { flex-direction: column; align-items: center; gap: 12px; }
+  .dl-features { grid-template-columns: 1fr; }
+  .dl-body-title { font-size: 1rem; }
+
+  /* Pro page compact */
+  .pro-features-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   RESPONSIVE COMPLÉMENTS — PC LARGE (≥ 1400px)
+   ============================================================ */
+@media (min-width: 1400px) {
+  .content { padding: 12px 48px 48px; }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); gap: 22px; }
+  .hero-disc { width: 340px; height: 340px; }
+  .disc-vinyl { width: 300px; height: 300px; }
+}

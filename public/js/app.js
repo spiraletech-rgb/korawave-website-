@@ -4159,10 +4159,21 @@
     $('#logoutBtn').onclick = logout;
     $('#identifyBtn').onclick = identifyModal;
 
-    // Cat panel — mobile overlay close
+    // Cat panel — mobile overlay + hamburger
     const overlay = $('#sidebarOverlay');
     const catPanel = $('#catPanel');
-    function closeCatPanel() { catPanel?.classList.remove('open'); overlay?.classList.remove('show'); }
+    const hamburger = $('#hamburger');
+    function closeCatPanel() {
+      catPanel?.classList.remove('open'); overlay?.classList.remove('show');
+      hamburger?.classList.remove('open');
+    }
+    if (hamburger) {
+      hamburger.addEventListener('click', () => {
+        const open = catPanel?.classList.toggle('open');
+        overlay?.classList.toggle('show', open);
+        hamburger.classList.toggle('open', open);
+      });
+    }
     if (overlay) overlay.addEventListener('click', closeCatPanel);
     catPanel?.addEventListener('click', (e) => {
       if (e.target.closest('[data-genre]') && window.innerWidth <= 768) closeCatPanel();
@@ -4371,6 +4382,8 @@
     if (shareMatch) { await renderSharePage(shareMatch[1]); return; }
 
     bindGlobal();
+
+    // Auth check instantané (décodage JWT local, zéro réseau)
     if (State.token) {
       try {
         const { user } = await api('/auth/me');
@@ -4380,12 +4393,16 @@
       } catch (e) { State.token = null; localStorage.removeItem('kw_token'); }
     }
     renderAuthUI(); setActiveNav();
-    await loadData();
+
+    // Rendu immédiat — la page s'affiche sans attendre l'API
     await render();
+
+    // Chargement des données en arrière-plan, puis re-rendu
+    loadData().then(() => render()).catch(() => {});
+
     loadNotifications();
     initPush();
     if (State.user) startMsgBadge();
-    // polling léger des notifications (toutes les 45s)
     setInterval(() => { if (State.user) loadNotifications(); }, 45000);
   }
 
