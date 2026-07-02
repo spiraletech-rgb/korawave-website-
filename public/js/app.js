@@ -1414,7 +1414,7 @@
       </div>
     </div>`);
 
-    m.addEventListener('click', (e) => { if (e.target === m || e.target.dataset.close) { stopIdentify(); m.remove(); } });
+    m.addEventListener('click', (e) => { if (e.target === m || e.target.dataset.close !== undefined) { stopIdentify(); m.remove(); } });
     $('#modalRoot').appendChild(m);
 
     let mediaStream = null, recorder = null, timer = null;
@@ -3822,7 +3822,7 @@
             <div class="dl-feat"><span class="dl-feat-icon">💰</span><strong>500 GNF</strong><span>par titre, Orange Money & MTN</span></div>
             <div class="dl-feat"><span class="dl-feat-icon">🔒</span><strong>DRM 8 couches</strong><span>écoute protégée</span></div>
           </div>
-          <button class="btn btn-outline" style="margin-top:32px" onclick="State.view='home';render()">← Retour à l'accueil</button>
+          <button class="btn btn-outline" style="margin-top:32px" data-view-btn="home">← Retour à l'accueil</button>
         </div>
       </div>`;
   }
@@ -3888,7 +3888,7 @@
               <button class="btn btn-outline" onclick="loginModal()">Se connecter</button>
             </div>
           </div>
-          <button class="btn btn-outline" style="margin-top:32px" onclick="State.view='home';render()">← Retour à l'accueil</button>
+          <button class="btn btn-outline" style="margin-top:32px" data-view-btn="home">← Retour à l'accueil</button>
         </div>
       </div>`;
   }
