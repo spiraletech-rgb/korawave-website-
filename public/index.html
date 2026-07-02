@@ -21,6 +21,11 @@
         <span class="brand-name" style="display:none">KORAWAVE</span>
       </div>
 
+      <!-- Cloche notifications — mobile uniquement, toujours visible -->
+      <button class="mobile-bell" id="mBellBtn" aria-label="Notifications">
+        🔔<span class="bell-badge hidden" id="mBellBadge">0</span>
+      </button>
+
       <button class="hamburger" id="hamburger" aria-label="Menu">
         <span></span><span></span><span></span>
       </button>
@@ -80,6 +85,13 @@
         </div>
       </div>
     </header>
+
+    <!-- ============ BARRE DE RECHERCHE MOBILE ============ -->
+    <div class="mobile-search-bar" id="mobileSearchBar">
+      <button class="msb-mic" id="msbMic" title="Identifier un morceau">🎤</button>
+      <input type="text" class="msb-input" id="msbInput" placeholder="Rechercher un titre, un artiste…" />
+      <button class="msb-btn" id="msbBtn">🔍</button>
+    </div>
 
     <!-- ============ BODY ROW ============ -->
     <div class="body-row">
@@ -144,6 +156,26 @@
         <div class="vol"><input id="volume" type="range" min="0" max="100" value="80" /></div>
       </div>
     </footer>
+
+    <!-- ============ NAVIGATION BAS MOBILE ============ -->
+    <nav class="mobile-bottomnav" id="mobileBottomNav">
+      <button class="mbn-tab mbn-active" data-mbn="home">
+        <span class="mbn-ic">🏠</span>
+        <span class="mbn-lab">Accueil</span>
+      </button>
+      <button class="mbn-tab" data-mbn="categories">
+        <span class="mbn-ic">⊞</span>
+        <span class="mbn-lab">Catégories</span>
+      </button>
+      <button class="mbn-tab mbn-center" data-mbn="explore">
+        <div class="mbn-circle">▶</div>
+        <span class="mbn-lab">Explorer</span>
+      </button>
+      <button class="mbn-tab" data-mbn="compte">
+        <span class="mbn-ic">👤</span>
+        <span class="mbn-lab">Compte</span>
+      </button>
+    </nav>
 
   </div><!-- /#app -->
 

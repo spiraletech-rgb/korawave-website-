@@ -913,14 +913,14 @@
           <div class="eyebrow">— La Voix de la Guinée</div>
           <h1>La musique guinéenne, <em>enfin chez elle</em>.</h1>
           <p>KORAWAVE est la première plateforme de streaming pensée pour la Guinée : paiement par Orange Money et MTN MoMo, écoute protégée par DRM, et une rémunération directe pour chaque artiste, à chaque écoute.</p>
-          <div class="hero-cta">
-            <button class="btn btn-gold" id="heroDownload">Télécharger</button>
-            <button class="btn btn-outline" id="heroProBtn">Korawave Pro</button>
-          </div>
           <div class="hero-stats">
             <div class="hs"><span class="hs-val gold">50%</span><span class="hs-lab">reversés à l'artiste</span></div>
             <div class="hs"><span class="hs-val gold">500 GNF</span><span class="hs-lab">par titre audio</span></div>
             <div class="hs"><span class="hs-val">8 couches</span><span class="hs-lab">de protection DRM</span></div>
+          </div>
+          <div class="hero-cta">
+            <button class="btn btn-gold" id="heroDownload">Télécharger</button>
+            <button class="btn btn-outline" id="heroProBtn">Korawave Pro</button>
           </div>
         </div>
         <div class="hero-disc">
@@ -2704,11 +2704,13 @@
     renderBell();
   }
   function renderBell() {
-    const badge = $('#bellBadge');
-    if (!badge) return;
     const n = State.notif.unread || 0;
-    badge.textContent = n > 9 ? '9+' : n;
-    badge.classList.toggle('hidden', n === 0);
+    ['#bellBadge', '#mBellBadge'].forEach(sel => {
+      const b = $(sel);
+      if (!b) return;
+      b.textContent = n > 9 ? '9+' : n;
+      b.classList.toggle('hidden', n === 0);
+    });
   }
   async function toggleBellPanel() {
     const panel = $('#bellPanel');
@@ -3631,6 +3633,89 @@
   // ============================================================
   //  RENDU PRINCIPAL
   // ============================================================
+  // ── Vues mobile bottom-nav ──────────────────────────────────
+  function viewMobileCategories() {
+    const genres = [
+      { ic: '🎤', lab: 'Hip-hop', val: 'Hip-hop' },
+      { ic: '🌍', lab: 'Mandingue', val: 'Mandingue' },
+      { ic: '🔥', lab: 'Afrobeats', val: 'Afrobeats' },
+      { ic: '🌴', lab: 'Reggae', val: 'Reggae' },
+      { ic: '🥁', lab: 'Mamaya', val: 'Mamaya' },
+      { ic: '🪕', lab: 'Mode Griot', val: 'Mode Griot' },
+      { ic: '🥁', lab: 'Faré-Gnakhi', val: 'Faré-Gnakhi' },
+      { ic: '💃', lab: 'Coupé-décalé', val: 'Coupé-décalé' },
+      { ic: '🎷', lab: 'Jazz', val: 'Jazz' },
+      { ic: '✝️', lab: 'Gospel', val: 'Gospel' },
+      { ic: '🎸', lab: 'Blues', val: 'Blues' },
+      { ic: '🎵', lab: 'Tous les genres', val: 'Tous' },
+    ];
+    return `<div class="mbn-cat-view">
+      <h2 class="mbn-cat-title">Catégories</h2>
+      <div class="mbn-genre-grid">
+        ${genres.map(g => `<button class="mbn-genre-btn${State.genreFilter === g.val ? ' active' : ''}" data-genre="${g.val}">${g.ic} ${g.lab}</button>`).join('')}
+      </div>
+    </div>`;
+  }
+  function mountMobileCategories() {
+    $$('.mbn-genre-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const g = btn.dataset.genre;
+        State.genreFilter = g === 'Tous' ? null : g;
+        go('music');
+      });
+    });
+  }
+
+  function viewMobileExplore() {
+    return `<div class="mbn-explore-view">
+      <h2 class="mbn-explore-title">Explorer</h2>
+      <div class="mbn-explore-grid">
+        <button class="mbn-explore-card" data-view="music"><span class="mec-ic">🎵</span><span class="mec-lab">Musique</span></button>
+        <button class="mbn-explore-card" data-view="videos"><span class="mec-ic">🎬</span><span class="mec-lab">Clips</span></button>
+        <button class="mbn-explore-card" data-view="battle"><span class="mec-ic">⚔️</span><span class="mec-lab">Battle</span></button>
+        <button class="mbn-explore-card" data-view="events"><span class="mec-ic">🎟️</span><span class="mec-lab">Events</span></button>
+        <button class="mbn-explore-card full" data-view="griot"><span class="mec-ic">🪕</span><span class="mec-lab">Mode Griot</span></button>
+      </div>
+    </div>`;
+  }
+  function mountMobileExplore() {
+    $$('.mbn-explore-card').forEach(btn => btn.addEventListener('click', () => go(btn.dataset.view)));
+  }
+
+  function viewMobileCompte() {
+    if (State.user) {
+      const ini = (State.user.artistName || State.user.name || 'U').charAt(0).toUpperCase();
+      return `<div class="mbn-compte-view">
+        <div class="mbn-compte-avatar">${ini}</div>
+        <div class="mbn-compte-name">${esc(State.user.artistName || State.user.name || '')}</div>
+        <div class="mbn-compte-email">${esc(State.user.email || '')}</div>
+        <div class="mbn-compte-links">
+          <button class="mbn-compte-link" data-view="wallet"><span class="mbn-lk-ic">💰</span> Mon Portefeuille</button>
+          <button class="mbn-compte-link" data-view="playlists"><span class="mbn-lk-ic">📋</span> Mes Playlists</button>
+          <button class="mbn-compte-link" data-view="messages"><span class="mbn-lk-ic">💬</span> Messages</button>
+          ${State.user.role === 'artist' ? `<button class="mbn-compte-link" data-view="artist"><span class="mbn-lk-ic">🎤</span> Mon Espace Artiste</button>` : ''}
+          ${State.user.role === 'admin' ? `<button class="mbn-compte-link" data-view="dashboard"><span class="mbn-lk-ic">📊</span> Dashboard Admin</button>` : ''}
+          <button class="mbn-compte-link" id="mbnLogout"><span class="mbn-lk-ic">⏻</span> Déconnexion</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="mbn-compte-view mbn-compte-guest">
+      <div class="mbn-compte-guest-icon">🎵</div>
+      <h2>Rejoins KORAWAVE</h2>
+      <p>Écoute, télécharge et soutiens les artistes guinéens.</p>
+      <div class="mbn-compte-links">
+        <button class="btn btn-gold btn-full" id="mbnRegister">S'inscrire</button>
+        <button class="btn btn-ghost btn-full" id="mbnLogin">Se connecter</button>
+      </div>
+    </div>`;
+  }
+  function mountMobileCompte() {
+    $('#mbnRegister')?.addEventListener('click', registerModal);
+    $('#mbnLogin')?.addEventListener('click', loginModal);
+    $('#mbnLogout')?.addEventListener('click', logout);
+    $$('.mbn-compte-link[data-view]').forEach(btn => btn.addEventListener('click', () => go(btn.dataset.view)));
+  }
+
   async function render() {
     const c = $('#content');
     switch (State.view) {
@@ -3679,6 +3764,9 @@
       case 'korawave-pro':
         c.innerHTML = viewKorawavePro();
         break;
+      case 'mbn_categories': c.innerHTML = viewMobileCategories(); mountMobileCategories(); break;
+      case 'mbn_explore': c.innerHTML = viewMobileExplore(); mountMobileExplore(); break;
+      case 'mbn_compte': c.innerHTML = viewMobileCompte(); mountMobileCompte(); break;
       default: c.innerHTML = viewHome(); mountSliders();
     }
     c.scrollTo?.(0, 0);
@@ -4142,10 +4230,23 @@
     $$('#catPanel .cat-item').forEach((b) => {
       if (b.dataset.genre) b.classList.toggle('active', b.dataset.genre === (State.genreFilter || 'Tous'));
     });
+    // Mobile bottom nav active tab
+    const mbnMap = {
+      home: 'home', search: 'home',
+      mbn_categories: 'categories',
+      mbn_explore: 'explore', music: 'explore', videos: 'explore',
+      griot: 'explore', battle: 'explore', events: 'explore',
+      mbn_compte: 'compte', wallet: 'compte', playlists: 'compte',
+      messages: 'compte', thread: 'compte', artist: 'compte', dashboard: 'compte',
+    };
+    const activeTab = mbnMap[State.view] || 'home';
+    $$('.mbn-tab').forEach(btn => btn.classList.toggle('mbn-active', btn.dataset.mbn === activeTab));
   }
 
   function go(view) {
-    State.view = view; State.genreFilter = null; State._artistFilter = null; State._artistPageId = null; State.search = ''; $('#searchInput').value = '';
+    State.view = view; State.genreFilter = null; State._artistFilter = null; State._artistPageId = null; State.search = '';
+    $('#searchInput').value = '';
+    const msb = $('#msbInput'); if (msb) msb.value = '';
     setActiveNav(); render();
   }
 
@@ -4362,6 +4463,43 @@
 
       // Radio button in hero
       if (t.id === 'radioBtn' || t.closest('#radioBtn')) return moodModal();
+    });
+
+    // ── Bottom nav mobile ──
+    $$('.mbn-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const a = btn.dataset.mbn;
+        if (a === 'home') go('home');
+        else if (a === 'categories') go('mbn_categories');
+        else if (a === 'explore') go('mbn_explore');
+        else if (a === 'compte') go('mbn_compte');
+      });
+    });
+
+    // ── Cloche mobile ──
+    $('#mBellBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.user) toggleBellPanel();
+      else loginModal();
+    });
+
+    // ── Recherche mobile ──
+    let msbT;
+    $('#msbInput')?.addEventListener('input', (e) => {
+      const si = $('#searchInput'); if (si) si.value = e.target.value;
+      clearTimeout(msbT);
+      msbT = setTimeout(() => {
+        const q = e.target.value.trim();
+        State.search = q.toLowerCase();
+        if (q.length >= 2) { State.view = 'search'; State.genreFilter = null; State._artistFilter = null; }
+        else if (q.length === 0 && State.view === 'search') { State.view = 'home'; }
+        render();
+      }, 180);
+    });
+    $('#msbMic')?.addEventListener('click', identifyModal);
+    $('#msbBtn')?.addEventListener('click', () => {
+      const q = $('#msbInput')?.value?.trim();
+      if (q && q.length >= 2) { State.search = q.toLowerCase(); State.view = 'search'; render(); }
     });
 
     document.addEventListener('keydown', (e) => {
