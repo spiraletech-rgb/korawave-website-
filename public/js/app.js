@@ -13,7 +13,8 @@
     videos: [],
     battles: [],
     fanPacks: [],
-    topGuinee: [],          // champions battle — Hall of Fame
+    topGuinee: [],
+    koinPacks: null,
     radioMood: null,        // humeur radio active (null = pas de radio)
     likedIds: new Set(),
     view: 'home',
@@ -231,7 +232,7 @@
     // ── CATALOGUE ─────────────────────────────────────────────────────────────
     if (path === '/tracks') return { url: v1('/tracks?limit=100', ''), adapt: (d) => ({ tracks: (d.data || d.tracks || []).map(adaptTrack) }) };
     if (path === '/videos') return { url: v1('/tracks?content_type=video&limit=50', ''), adapt: (d) => ({ videos: (d.data || []).map(adaptTrack) }) };
-    if (path === '/top-guinee') return local({ champions: [] });
+    if (path === '/top-guinee') return { url: v1('/battle/top-guinee', '') };
     if (path === '/search') return { url: v1('/tracks/search', qs), adapt: (d) => ({ tracks: (Array.isArray(d) ? d : (d.data || [])).map(adaptTrack), artists: [] }) };
 
     // ── PLAYLISTS ─────────────────────────────────────────────────────────────
@@ -276,6 +277,8 @@
     // ── SOCIAL ────────────────────────────────────────────────────────────────
     if (path === '/like') return { url: v1('/social/like', '') };
     if (path === '/comments' && method === 'POST') return { url: v1('/social/comment', '') };
+    const reportCommentM = path.match(/^\/comments\/([^/]+)\/report$/);
+    if (reportCommentM) return { url: v1('/social/comment/' + reportCommentM[1] + '/flag', '') };
     if (path.startsWith('/comments')) return { url: v1('/social/comments', qs) };
 
     // ── BATTLES ───────────────────────────────────────────────────────────────
@@ -294,15 +297,17 @@
 
     // ── WALLET / KOINS ────────────────────────────────────────────────────────
     if (path === '/wallet') return { url: v1('/koins/balance', ''), adapt: (d) => ({ balance: d.balance || d.koins || 0, transactions: d.transactions || [], owned: d.owned || [] }) };
-    if (path === '/koin-packs') return local({ packs: KW_KOIN_PACKS });
+    if (path === '/koin-packs') return { url: v1('/koins/packs', '') };
     if (path === '/wallet/recharge') return { url: v1('/koins/recharge', '') };
     if (path === '/purchase') return { url: v1('/purchases/initiate', ''), body: { content_type: reqBody && reqBody.contentType, content_id: reqBody && reqBody.contentId } };
     if (path === '/purchase-pack') return { url: v1('/fanpack/purchase/' + (reqBody && reqBody.packId || ''), ''), body: {} };
     if (path === '/tip') return { url: v1('/tipjar/send', '') };
 
     // ── FAN PACKS ─────────────────────────────────────────────────────────────
-    if (path === '/fan-packs') return local({ packs: [] });
+    if (path === '/fan-packs') return { url: v1('/fanpack/all', '') };
     if (path === '/artist/fan-packs' && method === 'POST') return { url: v1('/fanpack/create', '') };
+    const delFanPackM = path.match(/^\/fanpack\/([^/]+)$/);
+    if (delFanPackM && method === 'DELETE') return { url: v1('/fanpack/' + delFanPackM[1], '') };
 
     // ── ARTISTE (tableau de bord artiste) ─────────────────────────────────────
     if (path === '/artist/stats') return { url: v1('/artists/me/dashboard', ''), adapt: (d) => ({ stats: d.stats || d, tracks: [], videos: [] }) };
@@ -316,15 +321,17 @@
     if (apM) return { url: v1('/artists/' + apM[1], ''), adapt: (d) => ({ profile: adaptArtist(d) }) };
     const afM = path.match(/^\/artists\/([^/]+)\/follow$/);
     if (afM) return { url: v1('/artists/' + afM[1] + '/follow', '') };
+    const artistShareM = path.match(/^\/artist\/tracks\/([^/]+)\/share$/);
+    if (artistShareM) return { url: v1('/tracks/' + artistShareM[1] + '/share', '') };
 
     // ── FINGERPRINT ───────────────────────────────────────────────────────────
     if (path === '/identify') return { url: v1('/tracks/identify', '') };
     const fpM = path.match(/^\/tracks\/([^/]+)\/fingerprint$/);
     if (fpM) return { url: v1('/tracks/' + fpM[1] + '/fingerprint', '') };
 
-    // ── NOTIFICATIONS (stub) ──────────────────────────────────────────────────
-    if (path === '/notifications') return local({ notifications: [], unread: 0 });
-    if (path === '/notifications/read') return local({ ok: true });
+    // ── NOTIFICATIONS ─────────────────────────────────────────────────────────
+    if (path === '/notifications') return { url: v1('/notifications', '') };
+    if (path === '/notifications/read') return { url: v1('/notifications/read', '') };
 
     // ── PUSH (stub) ───────────────────────────────────────────────────────────
     if (path === '/push/vapid-key') return local({ publicKey: null });
@@ -336,14 +343,18 @@
       return { url: v1('/admin/dashboard', ''), adapt: (d) => ({ users: d.totalUsers || d.users || 0, artists: d.totalArtists || d.artists || 0, tracks: d.totalTracks || d.tracks || 0, videos: d.totalVideos || d.videos || 0, revenue: d.totalRevenue || d.revenue || 0, plays: d.totalPlays || d.plays || 0 }) };
     }
     if (path === '/admin/artists') return { url: v1('/admin/artists', ''), adapt: (d) => ({ artists: d.artists || d.data || d || [] }) };
-    if (path === '/admin/comments') return local({ comments: [] });
-    if (path === '/admin/users') return local({ users: [] });
-    if (path.match(/^\/admin\/users\/[^/]+$/)) return local({ ok: true });
+    if (path === '/admin/comments') return { url: v1('/admin/comments', '') };
+    const modM = path.match(/^\/admin\/comments\/([^/]+)\/moderate$/);
+    if (modM) return { url: v1('/admin/comments/' + modM[1] + '/moderate', '') };
+    if (path === '/admin/users') return { url: v1('/admin/users', '') };
+    const adminUserM = path.match(/^\/admin\/users\/([^/]+)$/);
+    if (adminUserM) return { url: v1('/admin/users/' + adminUserM[1], '') };
     if (path === '/admin/finance' || path.startsWith('/admin/finance?')) {
       return { url: v1('/admin/revenue', qs || (reqBody && reqBody.period ? '?period=' + reqBody.period : '')) };
     }
     if (path === '/admin/battles' && method === 'POST') return { url: v1('/battle/create', '') };
-    if (path.match(/^\/admin\/battles\/[^/]+\/close$/)) return local({ ok: true });
+    const closeBattleM = path.match(/^\/admin\/battles\/([^/]+)\/close$/);
+    if (closeBattleM) return { url: v1('/admin/battles/' + closeBattleM[1] + '/close', '') };
     if (path === '/admin/events' && method === 'POST') return { url: v1('/events/create', '') };
 
     // ── SHARE ─────────────────────────────────────────────────────────────────
@@ -1761,6 +1772,7 @@
     } catch (e) { return `<div class="empty">${esc(e.message)}</div>`; }
     State.walletData = w;
     const packs = packsData.packs || PACK_DEFAULT;
+    State.koinPacks = packs;
     const myTickets = ticketsData.tickets || [];
 
     const txRows = w.transactions.length ? w.transactions.map((t) => `
@@ -1823,7 +1835,7 @@
   }
 
   function rechargeModal(packId) {
-    const pack = PACK_DEFAULT.find((p) => p.id === packId) || PACK_DEFAULT[0];
+    const pack = (State.koinPacks || PACK_DEFAULT).find((p) => p.id === packId) || (State.koinPacks || PACK_DEFAULT)[0];
     let method = 'orange_money';
     const m = el(`
       <div class="overlay">
@@ -2670,8 +2682,7 @@
           }</p>` : ''}
           ${b.hasVoted && !isEnded ? '<p class="bm-hint" style="color:var(--green)">✓ Tu as voté — les deux titres sont déverrouillés pour toi !</p>' : ''}
           <div class="bm-share">
-            <span class="sub">Partager :</span>
-            ${socialButtons(shareUrl, `⚔️ Vote pour le KORAWAVE Battle « ${b.theme} » !`)}
+            ${socialButtons(shareUrl, '')}
           </div>
         </div>
       </div>`);
@@ -3554,7 +3565,7 @@
       const sub = scheduled
         ? `<span class="card-soon">⏳ Sortie le ${fmtDateTime(it.releaseAt)}</span>`
         : `${esc(it.artist)} · ${fmtMoney(it.price)} · ${fmtNum(it.plays)} ▶`;
-      const canShare = verified && manageSub === 'audio' && !scheduled;
+      const canShare = (verified || uploadMode === 'admin') && manageSub === 'audio' && !scheduled;
       const canEdit = uploadMode === 'admin';
       return `
         <div class="manage-item">
@@ -3936,6 +3947,72 @@
   // Invité = aperçu 10s.
   const canPlayFull = () => !!State.user;
 
+  // ── MSE STREAMING ──────────────────────────────────────────────────────────
+  // Charge l'audio via MediaSource Extensions : audio.src = blob: (jamais une URL HTTP).
+  // IDM ne voit aucune URL cible à télécharger.
+  let _mseAbort = null;
+
+  function startMSEStream(trackId) {
+    if (_mseAbort) { _mseAbort.abort(); _mseAbort = null; }
+    const ctrl = new AbortController();
+    _mseAbort = ctrl;
+
+    const token = State.token;
+    const streamUrl = `${API_BASE}/api/v1/tracks/${trackId}/stream`;
+
+    // Vérification support MSE (Chrome/Firefox/Edge : oui, Safari : partiel)
+    const mseOk = window.MediaSource && (
+      MediaSource.isTypeSupported('audio/mpeg') ||
+      MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"')
+    );
+
+    if (!mseOk) {
+      // Fallback : token dans l'URL (moins sûr mais fonctionnel sur vieux navigateurs)
+      audio.src = `${streamUrl}?token=${encodeURIComponent(token)}`;
+      audio.play().catch(() => {});
+      return;
+    }
+
+    const mimeType = MediaSource.isTypeSupported('audio/mpeg')
+      ? 'audio/mpeg'
+      : 'audio/mp4; codecs="mp4a.40.2"';
+
+    const ms = new MediaSource();
+    const blobUrl = URL.createObjectURL(ms);
+    audio.src = blobUrl;
+    audio.play().catch(() => {}); // le navigateur attend les premières données
+
+    ms.addEventListener('sourceopen', async () => {
+      URL.revokeObjectURL(blobUrl);
+      if (ctrl.signal.aborted) return;
+      try {
+        const sb = ms.addSourceBuffer(mimeType);
+        const resp = await fetch(streamUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: ctrl.signal,
+        });
+        if (!resp.ok || ctrl.signal.aborted) { ms.endOfStream('network'); return; }
+
+        const reader = resp.body.getReader();
+        const pump = async () => {
+          if (ctrl.signal.aborted) { reader.cancel(); return; }
+          let chunk;
+          try { chunk = await reader.read(); } catch { return; }
+          if (chunk.done || ctrl.signal.aborted) { try { ms.endOfStream(); } catch {} return; }
+          if (sb.updating) {
+            await new Promise((r) => sb.addEventListener('updateend', r, { once: true }));
+          }
+          try { sb.appendBuffer(chunk.value); } catch { return; }
+          await new Promise((r) => sb.addEventListener('updateend', r, { once: true }));
+          pump();
+        };
+        pump();
+      } catch (e) {
+        if (!ctrl.signal.aborted) { try { ms.endOfStream('network'); } catch {} }
+      }
+    }, { once: true });
+  }
+
   function playTrack(id, forcePreview) {
     const target = State.tracks.find((t) => t.id === id);
     if (target && target.released === false) {
@@ -3960,8 +4037,14 @@
     State.previewMode = !!preview;
     State.previewStart = 0;
     State.previewItem = preview ? { type: 'audio', id: t.id } : null;
-    audio.src = t.audioUrl;
-    audio.play().catch(() => {});
+    if (!preview && State.user) {
+      // Streaming complet via MSE — aucune URL audio exposée au navigateur
+      startMSEStream(t.id);
+    } else {
+      // Aperçu 10s ou non connecté — URL signée directe (expire dans 30 min)
+      audio.src = t.audioUrl;
+      audio.play().catch(() => {});
+    }
     $('#playBtn').textContent = '⏸';
     $('#npTitleText').textContent = t.title;
     $('#npArtist').textContent = t.artist;
@@ -4070,18 +4153,26 @@
   // ============================================================
   //  LECTEUR VIDÉO (modale)
   // ============================================================
+  function videoStreamUrl(id) {
+    const base = `${API_BASE}/api/v1/tracks/${id}/stream/video`;
+    return State.token ? `${base}?token=${encodeURIComponent(State.token)}` : null;
+  }
+
   function playVideo(id, forcePreview) {
     const v = State.videos.find((x) => x.id === id);
     if (!v) return;
     if (v.released === false) { toast('🔒 Disponible le ' + fmtDateTime(v.releaseAt)); return; }
     const preview = forcePreview !== undefined ? forcePreview : !canPlayFull();
+    // Pour la lecture complète, on utilise le proxy serveur (?token=JWT) — jamais l'URL Cloudinary directe.
+    // Pour l'aperçu (non connecté), on utilise l'URL signée (courte durée).
+    const videoSrc = (!preview && videoStreamUrl(id)) ? videoStreamUrl(id) : v.videoUrl;
     audio.pause(); $('#playBtn').textContent = '▶'; hidePreviewBanner();
     const m = el(`
       <div class="overlay">
         <div class="modal video-modal">
           <button class="modal-close" data-close style="z-index:8;color:#fff">&times;</button>
           ${preview ? '<div class="vm-preview-badge">◷ Aperçu 10s</div>' : ''}
-          <video src="${esc(v.videoUrl)}" controls autoplay ${v.thumbUrl ? `poster="${esc(v.thumbUrl)}"` : ''}></video>
+          <video src="${esc(videoSrc)}" controls autoplay controlslist="nodownload nofullscreen" disablepictureinpicture ${v.thumbUrl ? `poster="${esc(v.thumbUrl)}"` : ''}></video>
           ${preview ? `<div class="vm-lock"><div class="vl-ic">🔒</div><p>Aperçu de 10 secondes terminé.<br>${State.user ? 'Lance la vidéo complète.' : 'Connecte-toi pour regarder en entier.'}</p><button class="btn btn-gold" id="vmUnlock">${State.user ? 'Voir en entier' : 'Se connecter'}</button></div>` : ''}
           <div class="vm-info">
             <h3>${esc(v.title)}</h3>
@@ -4090,6 +4181,7 @@
         </div>
       </div>`);
     const videoEl = m.querySelector('video');
+    videoEl.addEventListener('contextmenu', (e) => e.preventDefault());
     let capped = preview;
     if (preview) {
       videoEl.addEventListener('timeupdate', () => {
@@ -4102,6 +4194,8 @@
         if (!State.user) { closeModal(); loginModal(); return; }
         capped = false;
         m.querySelector('.vm-lock').classList.remove('show');
+        const streamSrc = videoStreamUrl(id);
+        if (streamSrc) { videoEl.src = streamSrc; }
         videoEl.play();
       });
     }
@@ -4113,13 +4207,19 @@
   // ============================================================
   //  PARTAGE D'EXTRAIT 30s (artiste vérifié)
   // ============================================================
-  function socialButtons(url, text) {
-    const u = encodeURIComponent(url), t = encodeURIComponent(text);
-    return `
-      <a class="soc fb" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${u}">f Facebook</a>
-      <a class="soc wa" target="_blank" rel="noopener" href="https://wa.me/?text=${t}%20${u}">WhatsApp</a>
-      <a class="soc tw" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?url=${u}&text=${t}">X / Twitter</a>`;
+  function socialButtons(url, _text) {
+    return `<button class="btn btn-outline btn-block copy-kw-link" type="button" data-kwlink="${esc(url)}">📋 Copier le lien KORAWAVE</button>`;
   }
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.copy-kw-link');
+    if (btn) {
+      const link = btn.dataset.kwlink;
+      navigator.clipboard?.writeText(link).then(() => toast('Lien copié ✓')).catch(() => {
+        try { const i = document.createElement('input'); i.value = link; document.body.appendChild(i); i.select(); document.execCommand('copy'); document.body.removeChild(i); toast('Lien copié ✓'); } catch (_) {}
+      });
+    }
+  });
 
   function shareModal(id) {
     const t = (State._artistContent?.tracks || State.tracks).find((x) => x.id === id);
@@ -4153,9 +4253,7 @@
                 <button class="btn btn-outline" id="copyLink" type="button">Copier</button>
               </div>
             </div>
-            <p class="sub" style="margin:14px 0 8px">Partager sur :</p>
-            <div class="share-social" id="shareSocial"></div>
-            <p class="sub" style="font-size:11px;margin-top:14px">TikTok & YouTube : via leurs APIs de publication (OAuth) côté serveur en production. L'extrait est borné à 30s et watermarqué KORAWAVE.</p>
+            <p class="sub" style="font-size:11px;margin-top:14px;color:var(--gold)">🔒 Extrait 30s watermarqué KORAWAVE — partagez ce lien, pas le fichier.</p>
           </div>
         </div>
       </div>`);
@@ -4187,7 +4285,6 @@
       try {
         const r = await api(`/artist/tracks/${id}/share`, { method: 'POST', body: { start } });
         m.querySelector('#shareLink').value = r.shareUrl;
-        m.querySelector('#shareSocial').innerHTML = socialButtons(r.shareUrl, `Écoute "${t.title}" sur KORAWAVE 🎶`);
         m.querySelector('#shareResult').classList.remove('hidden');
         toast('🔗 Lien d\'extrait généré');
         loadData();
@@ -4233,8 +4330,7 @@
           <button class="btn btn-gold btn-block" id="spPlay" type="button" style="margin:18px 0 10px">▶ Écouter l'extrait (30s)</button>
           <div class="share-prog"><div class="share-prog-fill" id="spFill"></div></div>
           <a class="btn btn-outline btn-block" href="/" style="margin-top:16px">🎧 Écouter en entier sur KORAWAVE — ${fmtMoney(data.price)}</a>
-          <p class="sub" style="margin-top:18px">Partager :</p>
-          <div class="share-social">${socialButtons(location.href, `Écoute "${data.title}" sur KORAWAVE 🎶`)}</div>
+          <div style="margin-top:18px">${socialButtons(location.href, '')}</div>
         </div>
       </div>`;
 
