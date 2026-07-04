@@ -829,7 +829,7 @@
         <div class="card-meta">
           ${scheduled
             ? `<span class="card-soon">⏳ <span data-countdown="${t.releaseAt}">${countdownText(t.releaseAt)}</span></span>`
-            : `<span class="card-price">${fmtMoney(t.price)}</span><button class="cmt-pill" data-detail="audio:${t.id}" title="Commentaires & détails">💬 ${fmtNum(t.comments || 0)}</button><button class="prev-pill" data-preview="${t.id}" title="Aperçu gratuit 10 secondes">◷ 10s</button>${t.owned ? '<span class="owned-pill">✓ Acheté</span>' : `<button class="buy-pill" data-buy="audio:${t.id}" title="Acheter avec des KOINS">${fmtNum(t.price)} K</button>`}${State.user ? `<button class="pl-pill" data-addtopl="${t.id}" title="Ajouter à une playlist">+📋</button>` : ''}`}
+            : `<span class="card-price">${fmtMoney(t.price)}</span><button class="cmt-pill" data-detail="audio:${t.id}" title="Commentaires & détails">💬 ${fmtNum(t.comments || 0)}</button>${t.owned ? '<span class="owned-pill">✓ Acheté</span>' : `<button class="buy-pill" data-buy="audio:${t.id}" title="Acheter avec des KOINS">${fmtNum(t.price)} K</button>`}${State.user ? `<button class="pl-pill" data-addtopl="${t.id}" title="Ajouter à une playlist">+📋</button>` : ''}`}
         </div>
       </div>`;
   }
@@ -851,7 +851,7 @@
         <div class="card-meta">
           ${scheduled
             ? `<span class="card-soon">⏳ <span data-countdown="${v.releaseAt}">${countdownText(v.releaseAt)}</span></span>`
-            : `<span class="card-price">${fmtMoney(v.price)}</span><button class="cmt-pill" data-detail="video:${v.id}" title="Commentaires & détails">💬 ${fmtNum(v.comments || 0)}</button><button class="prev-pill" data-previewvideo="${v.id}" title="Aperçu gratuit 10 secondes">◷ 10s</button>${v.owned ? '<span class="owned-pill">✓ Acheté</span>' : `<button class="buy-pill" data-buy="video:${v.id}" title="Acheter avec des KOINS">${fmtNum(v.price)} K</button>`}`}
+            : `<span class="card-price">${fmtMoney(v.price)}</span><button class="cmt-pill" data-detail="video:${v.id}" title="Commentaires & détails">💬 ${fmtNum(v.comments || 0)}</button>${v.owned ? '<span class="owned-pill">✓ Acheté</span>' : `<button class="buy-pill" data-buy="video:${v.id}" title="Acheter avec des KOINS">${fmtNum(v.price)} K</button>`}`}
         </div>
       </div>`;
   }
