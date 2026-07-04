@@ -835,15 +835,15 @@
   }
 
   function videoCard(v) {
-    const thumb = v.thumbUrl
-      ? `<img src="${esc(v.thumbUrl)}" alt="" />`
-      : `<div class="ph">🎬</div>`;
     const scheduled = v.released === false;
+    const thumb = v.thumbUrl ? `<img src="${esc(v.thumbUrl)}" alt="" />` : '';
     return `
       <div class="card video ${scheduled ? 'scheduled' : ''}" data-video="${v.id}">
         <span class="tag ${scheduled ? 'tag-soon' : ''}">${scheduled ? 'Bientôt' : 'Clip'}</span>
-        <div class="card-art">
-          ${thumb}
+        <div class="card-art" data-hover-video="${esc(v.id)}">
+          ${thumb || `<div class="ph">🎬</div>`}
+          ${v.videoUrl && !scheduled ? `<video class="card-vid" src="${esc(v.videoUrl)}" muted playsinline preload="none" tabindex="-1"></video>` : ''}
+          <div class="card-vid-bar"></div>
           ${scheduled ? '<div class="lock">🔒</div>' : `<button class="play-fab" data-playvideo="${v.id}">▶</button>`}
         </div>
         <div class="card-title">${esc(v.title)}</div>
@@ -4068,14 +4068,7 @@
   function endPreview() {
     audio.pause();
     $('#playBtn').textContent = '▶';
-    showPreviewBanner();
-  }
-  function showPreviewBanner() {
-    $('#previewMsg').textContent = State.user
-      ? 'Aperçu de 10 secondes terminé.'
-      : 'Aperçu de 10s terminé — connecte-toi pour écouter en entier.';
-    $('#previewUnlock').textContent = State.user ? 'Écouter en entier' : 'Se connecter';
-    $('#previewBanner').classList.remove('hidden');
+    // Pause silencieuse — pas de bannière
   }
   function hidePreviewBanner() { $('#previewBanner').classList.add('hidden'); }
 
@@ -4171,9 +4164,7 @@
       <div class="overlay">
         <div class="modal video-modal">
           <button class="modal-close" data-close style="z-index:8;color:#fff">&times;</button>
-          ${preview ? '<div class="vm-preview-badge">◷ Aperçu 10s</div>' : ''}
           <video src="${esc(videoSrc)}" controls autoplay controlslist="nodownload nofullscreen" disablepictureinpicture ${v.thumbUrl ? `poster="${esc(v.thumbUrl)}"` : ''}></video>
-          ${preview ? `<div class="vm-lock"><div class="vl-ic">🔒</div><p>Aperçu de 10 secondes terminé.<br>${State.user ? 'Lance la vidéo complète.' : 'Connecte-toi pour regarder en entier.'}</p><button class="btn btn-gold" id="vmUnlock">${State.user ? 'Voir en entier' : 'Se connecter'}</button></div>` : ''}
           <div class="vm-info">
             <h3>${esc(v.title)}</h3>
             <p class="sub">${esc(v.artist)} · ${esc(v.genre)} · ${fmtMoney(v.price)}</p>
@@ -4182,21 +4173,9 @@
       </div>`);
     const videoEl = m.querySelector('video');
     videoEl.addEventListener('contextmenu', (e) => e.preventDefault());
-    let capped = preview;
     if (preview) {
       videoEl.addEventListener('timeupdate', () => {
-        if (capped && videoEl.currentTime >= PREVIEW_SECS) {
-          videoEl.pause();
-          m.querySelector('.vm-lock').classList.add('show');
-        }
-      });
-      m.querySelector('#vmUnlock').addEventListener('click', () => {
-        if (!State.user) { closeModal(); loginModal(); return; }
-        capped = false;
-        m.querySelector('.vm-lock').classList.remove('show');
-        const streamSrc = videoStreamUrl(id);
-        if (streamSrc) { videoEl.src = streamSrc; }
-        videoEl.play();
+        if (videoEl.currentTime >= PREVIEW_SECS) videoEl.pause();
       });
     }
     m.addEventListener('click', (e) => { if (e.target === m || e.target.dataset.close !== undefined) closeModal(); });
@@ -4637,6 +4616,45 @@
         e.preventDefault(); togglePlay();
       }
       if (e.key === 'Escape') closeModal();
+    });
+
+    // ── Hover auto-play vidéo sur les cartes (style xvideos) ──────────────────
+    let _hvid = null, _hInv = null;
+
+    document.addEventListener('mouseover', (e) => {
+      const art = e.target.closest('[data-hover-video]');
+      if (!art) return;
+      const vid = art.querySelector('.card-vid');
+      if (!vid || vid === _hvid) return;
+      // Stopper la vidéo précédente
+      if (_hvid) {
+        _hvid.pause(); _hvid.currentTime = 0;
+        _hvid.closest('[data-hover-video]')?.classList.remove('hv-on');
+        const pb = _hvid.closest('[data-hover-video]')?.querySelector('.card-vid-bar');
+        if (pb) pb.style.width = '0';
+        clearInterval(_hInv);
+      }
+      _hvid = vid;
+      art.classList.add('hv-on');
+      vid.play().catch(() => {});
+      const bar = art.querySelector('.card-vid-bar');
+      _hInv = setInterval(() => {
+        if (!_hvid) return clearInterval(_hInv);
+        if (bar) bar.style.width = Math.min(100, (_hvid.currentTime / PREVIEW_SECS) * 100) + '%';
+        if (_hvid.currentTime >= PREVIEW_SECS) { _hvid.pause(); clearInterval(_hInv); }
+      }, 200);
+    });
+
+    document.addEventListener('mouseout', (e) => {
+      const art = e.target.closest('[data-hover-video]');
+      if (!art || !_hvid) return;
+      if (e.relatedTarget && art.contains(e.relatedTarget)) return;
+      _hvid.pause(); _hvid.currentTime = 0;
+      art.classList.remove('hv-on');
+      clearInterval(_hInv);
+      const bar = art.querySelector('.card-vid-bar');
+      if (bar) bar.style.width = '0';
+      _hvid = null;
     });
   }
 
