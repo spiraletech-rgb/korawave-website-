@@ -276,6 +276,7 @@
 
     // ── SOCIAL ────────────────────────────────────────────────────────────────
     if (path === '/like') return { url: v1('/social/like', '') };
+    if (path === '/my-likes') return { url: v1('/social/likes', ''), adapt: (d) => ({ likes: d.likes || [] }) };
     if (path === '/comments' && method === 'POST') return { url: v1('/social/comment', '') };
     const reportCommentM = path.match(/^\/comments\/([^/]+)\/report$/);
     if (reportCommentM) return { url: v1('/social/comment/' + reportCommentM[1] + '/flag', '') };
@@ -780,6 +781,13 @@
       State.fanPacks = fp.packs || [];
       State.topGuinee = tg.champions || [];
     } catch (e) { console.error(e); }
+    // Favoris de l'utilisateur — alimente l'onglet Favoris de « Mes Musiques »
+    if (State.user) {
+      try {
+        const lk = await api('/my-likes');
+        State.likedIds = new Set((lk.likes || []).map((l) => l.contentType + ':' + l.contentId));
+      } catch (e) { /* favoris indisponibles — on garde l'état courant */ }
+    }
   }
 
   async function loadWallet() {
@@ -886,7 +894,99 @@
       </div>`;
   }
 
+  // Accueil personnalisé du client connecté — calqué sur les maquettes KORAWAVE
+  // (header avatar + cœur, « Bonjour prénom », pills, carte À découvrir, Top du jour).
+  function viewHomeConnected() {
+    const prenom = (State.user.name || '').trim();
+    const greetWord = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
+    const tracks = State.tracks.filter((t) => t.released !== false);
+    const trending = [...tracks].sort((a, b) => (b.plays || 0) - (a.plays || 0));
+    const hasPlays = trending.some((t) => (t.plays || 0) > 0);
+    const newest = tracks.slice(0, 10);
+    const videos = filteredVideos().filter((v) => v.released !== false);
+    const featured = (hasPlays ? trending[0] : newest[0]) || null;
+    const topList = (hasPlays ? trending : newest).slice(0, 6);
+    const cover = (it, ph) => (it && it.coverUrl)
+      ? `<img src="${esc(it.coverUrl)}" alt="" />`
+      : `<div class="ph">${ph}</div>`;
+
+    const featuredCard = featured ? `
+      <div class="disc-card" data-play="${featured.id}">
+        <div class="disc-card-info">
+          <div class="disc-card-kick">✨ À la une cette semaine</div>
+          <h3 class="disc-card-title">${esc(featured.title)}</h3>
+          <p class="disc-card-sub">${esc(featured.artist)}</p>
+          <span class="disc-card-play">▶ Écouter</span>
+        </div>
+        <div class="disc-card-art">${cover(featured, '🎵')}</div>
+      </div>` : emptyBlock('🎵', "Aucun titre pour l'instant.");
+
+    const topRows = topList.length ? topList.map((t) => `
+      <div class="hrow pl-track-row" data-play="${t.id}">
+        <div class="hrow-art">${cover(t, '♪')}</div>
+        <div class="hrow-info">
+          <div class="hrow-title">${esc(t.title)}</div>
+          <div class="hrow-sub">${esc(t.artist)}${(t.plays || 0) ? ' · ' + fmtNum(t.plays) + ' écoutes' : ''}</div>
+        </div>
+        <button class="hrow-like" data-detail="audio:${t.id}" title="Détails & j'aime">♡</button>
+        <button class="hrow-play" data-play="${t.id}">▶</button>
+      </div>`).join('') : emptyBlock('🎵', 'Rien pour le moment.');
+
+    return `
+      <div class="home-c">
+        <header class="hc-head" id="hcTop">
+          <div class="hc-ava">${esc((prenom.charAt(0) || '♪').toUpperCase())}</div>
+          <button class="hc-heart" data-view-btn="library" title="Mes Musiques">♡</button>
+        </header>
+        <h1 class="hc-hello">${greetWord}, <span>${esc(prenom || 'toi')}</span> 👋</h1>
+
+        <div class="hc-pills">
+          <button class="home-pill active" data-scroll="hcTop">Tout</button>
+          <button class="home-pill" data-scroll="secNew">Nouveautés</button>
+          <button class="home-pill" data-scroll="secTop">Tendances</button>
+          <button class="home-pill" data-view-btn="videos">Clips</button>
+        </div>
+
+        <section class="hc-sec" id="secDiscover">
+          <div class="hc-sec-head"><h2>À découvrir</h2></div>
+          ${featuredCard}
+        </section>
+
+        <section class="hc-sec" id="secNew">
+          <div class="hc-sec-head">
+            <h2>Nouveautés</h2>
+            <div class="sl-btns">
+              <button class="sl-btn" data-sl-prev="slHomeNew">‹</button>
+              <button class="sl-btn" data-sl-next="slHomeNew">›</button>
+            </div>
+          </div>
+          ${newest.length ? `<div class="sl-track" id="slHomeNew">${newest.map(trackCard).join('')}</div>` : emptyBlock('🎵', "Aucun titre pour l'instant.")}
+        </section>
+
+        <section class="hc-sec" id="secTop">
+          <div class="hc-sec-head">
+            <h2>Top du jour</h2>
+            <button class="hc-seeall" data-view-btn="music">Voir tout</button>
+          </div>
+          <div class="hlist">${topRows}</div>
+        </section>
+
+        ${videos.length ? `
+        <section class="hc-sec" id="secClips">
+          <div class="hc-sec-head">
+            <h2>Clips vidéo</h2>
+            <div class="sl-btns">
+              <button class="sl-btn" data-sl-prev="slHomeVid">‹</button>
+              <button class="sl-btn" data-sl-next="slHomeVid">›</button>
+            </div>
+          </div>
+          <div class="sl-track" id="slHomeVid">${videos.slice(0, 8).map(videoCard).join('')}</div>
+        </section>` : ''}
+      </div>`;
+  }
+
   function viewHome() {
+    if (State.user) return viewHomeConnected();
     const tracks = [...State.tracks].filter((t) => t.released !== false);
     const upcoming = [...State.tracks, ...State.videos]
       .filter((x) => x.released === false)
@@ -895,6 +995,18 @@
     const trending = [...State.tracks].filter((t) => t.released !== false)
       .sort((a, b) => b.plays - a.plays).slice(0, 12);
     const activePacks = State.fanPacks.filter((fp) => fp.status === 'active');
+
+    // Salut personnalisé pour un client connecté (style maquette : « Bonjour, prénom »)
+    const greetWord = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
+    const prenom = State.user ? (State.user.name || '').trim() : '';
+    const greeting = State.user ? `
+      <div class="home-greeting">
+        <div class="hg-avatar">${esc((prenom.charAt(0) || '♪').toUpperCase())}</div>
+        <div class="hg-text">
+          <span class="hg-hi">${greetWord},</span>
+          <h2 class="hg-name">${esc(prenom || 'toi')} 👋</h2>
+        </div>
+      </div>` : '';
 
     const TICKER_GENRES = ['Afrobeats', 'Reggae', 'Jazz', 'Hip-hop', 'Mandingue', 'Mamaya', 'Faré-Gnakhi', 'Soussou', 'Pular', 'Mode Griot', 'Coupé-décalé', 'Gospel', 'Rap', 'Blues', 'Soul'];
     const tickerHtml = [...TICKER_GENRES, ...TICKER_GENRES].map(g =>
@@ -919,6 +1031,8 @@
     }
 
     return `
+      ${greeting}
+      ${State.user ? '' : `
       <section class="hero">
         <div class="hero-text">
           <div class="eyebrow">— La Voix de la Guinée</div>
@@ -945,7 +1059,7 @@
         </div>
       </section>
 
-      <div class="genre-ticker"><div class="ticker-inner">${tickerHtml}</div></div>
+      <div class="genre-ticker"><div class="ticker-inner">${tickerHtml}</div></div>`}
 
       ${State.topGuinee.length ? `
       <div class="slider-section">
@@ -998,11 +1112,107 @@
         track.scrollBy({ left: isPrev ? -(track.offsetWidth * .75) : track.offsetWidth * .75, behavior: 'smooth' });
       });
     });
+    // Pills de l'accueil connecté : scroll doux vers la section + état actif
+    document.querySelectorAll('.home-pill[data-scroll]').forEach((pill) => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.home-pill').forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        document.getElementById(pill.dataset.scroll)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
   }
 
   // ============================================================
   //  PLAYLISTS
   // ============================================================
+
+  // ============================================================
+  //  MES MUSIQUES — bibliothèque du client (maquette screen 1)
+  // ============================================================
+  let libTab = 'tous'; // 'tous' | 'playlists' | 'favoris' | 'downloads'
+
+  async function viewMesMusiques() {
+    if (!State.user) { loginModal(); return '<div class="empty">Connecte-toi pour voir ta bibliothèque.</div>'; }
+    const TABS = [
+      { id: 'tous', label: 'Tous' },
+      { id: 'playlists', label: 'Playlists' },
+      { id: 'favoris', label: 'Favoris' },
+      { id: 'downloads', label: 'Téléchargements' },
+    ];
+    const cover = (it, ph) => (it && it.coverUrl) ? `<img src="${esc(it.coverUrl)}" alt="" />` : `<div class="ph">${ph}</div>`;
+    const trackRow = (t) => `
+      <div class="hrow pl-track-row" data-play="${t.id}">
+        <div class="hrow-art">${cover(t, '♪')}</div>
+        <div class="hrow-info">
+          <div class="hrow-title">${esc(t.title)}</div>
+          <div class="hrow-sub">${esc(t.artist)}${(t.plays || 0) ? ' · ' + fmtNum(t.plays) + ' écoutes' : ''}</div>
+        </div>
+        <button class="hrow-like" data-detail="audio:${t.id}" title="Détails & j'aime">♡</button>
+        <button class="hrow-play" data-play="${t.id}">▶</button>
+      </div>`;
+    const videoRow = (v) => `
+      <div class="hrow" data-playvideo="${v.id}">
+        <div class="hrow-art">${cover(v, '🎬')}</div>
+        <div class="hrow-info">
+          <div class="hrow-title">${esc(v.title)}</div>
+          <div class="hrow-sub">${esc(v.artist)} · Clip</div>
+        </div>
+        <button class="hrow-play" data-playvideo="${v.id}">▶</button>
+      </div>`;
+
+    let body = '';
+    if (libTab === 'tous') {
+      const ot = State.tracks.filter((t) => t.owned && t.released !== false);
+      const ov = State.videos.filter((v) => v.owned && v.released !== false);
+      body = (ot.length || ov.length)
+        ? `<div class="hlist">${ot.map(trackRow).join('')}${ov.map(videoRow).join('')}</div>`
+        : emptyBlock('🎧', 'Ta bibliothèque est vide — achète un titre pour le retrouver ici.');
+    } else if (libTab === 'playlists') {
+      let pls = [];
+      try { pls = (await api('/playlists')).playlists || []; } catch (e) {}
+      body = pls.length
+        ? `<div class="hlist">${pls.map((p) => `
+            <div class="hrow" data-openpl="${esc(p.id)}">
+              <div class="hrow-art pl-ico">📋</div>
+              <div class="hrow-info">
+                <div class="hrow-title">${esc(p.name)}</div>
+                <div class="hrow-sub">${fmtNum((p.tracks && p.tracks.length) || p.trackCount || p.count || 0)} titre(s)</div>
+              </div>
+              <button class="hrow-play">▶</button>
+            </div>`).join('')}</div>`
+        : emptyBlock('📋', 'Aucune playlist — crée-en une depuis un titre (+📋).');
+    } else if (libTab === 'favoris') {
+      const favT = State.tracks.filter((t) => State.likedIds.has('audio:' + t.id));
+      const favV = State.videos.filter((v) => State.likedIds.has('video:' + v.id));
+      body = (favT.length || favV.length)
+        ? `<div class="hlist">${favT.map(trackRow).join('')}${favV.map(videoRow).join('')}</div>`
+        : emptyBlock('❤️', "Pas encore de favoris — appuie sur ♡ pendant l'écoute pour en ajouter.");
+    } else {
+      body = emptyBlock('📥', 'Le mode hors-ligne (téléchargements) arrive bientôt sur KORAWAVE.');
+    }
+
+    return `
+      <div class="lib">
+        <header class="lib-head">
+          <button class="lib-back" data-view-btn="home" title="Retour">‹</button>
+          <h1>Mes Musiques</h1>
+          <span class="lib-more">⋯</span>
+        </header>
+        <div class="hc-pills lib-pills">
+          ${TABS.map((t) => `<button class="home-pill ${libTab === t.id ? 'active' : ''}" data-libtab="${t.id}">${t.label}</button>`).join('')}
+        </div>
+        ${body}
+      </div>`;
+  }
+
+  function mountMesMusiques() {
+    document.querySelectorAll('[data-libtab]').forEach((btn) => {
+      btn.addEventListener('click', () => { libTab = btn.dataset.libtab; render(); });
+    });
+    document.querySelectorAll('[data-openpl]').forEach((row) => {
+      row.addEventListener('click', () => { State._playlistId = row.dataset.openpl; State.view = 'playlistDetail'; render(); });
+    });
+  }
 
   async function viewPlaylists() {
     if (!State.user) { loginModal(); return '<div class="empty">Connecte-toi pour voir tes playlists.</div>'; }
@@ -3735,6 +3945,7 @@
         <div class="mbn-compte-name">${esc(State.user.artistName || State.user.name || '')}</div>
         <div class="mbn-compte-email">${esc(State.user.email || '')}</div>
         <div class="mbn-compte-links">
+          <button class="mbn-compte-link" data-view="library"><span class="mbn-lk-ic">🎵</span> Mes Musiques</button>
           <button class="mbn-compte-link" data-view="wallet"><span class="mbn-lk-ic">💰</span> Mon Portefeuille</button>
           <button class="mbn-compte-link" data-view="playlists"><span class="mbn-lk-ic">📋</span> Mes Playlists</button>
           <button class="mbn-compte-link" data-view="messages"><span class="mbn-lk-ic">💬</span> Messages</button>
@@ -3809,6 +4020,7 @@
       case 'korawave-pro':
         c.innerHTML = viewKorawavePro();
         break;
+      case 'library': c.innerHTML = await viewMesMusiques(); mountMesMusiques(); break;
       case 'mbn_categories': c.innerHTML = viewMobileCategories(); mountMobileCategories(); break;
       case 'mbn_explore': c.innerHTML = viewMobileExplore(); mountMobileExplore(); break;
       case 'mbn_compte': c.innerHTML = viewMobileCompte(); mountMobileCompte(); break;
@@ -4345,7 +4557,7 @@
       mbn_categories: 'categories',
       mbn_explore: 'explore', music: 'explore', videos: 'explore',
       griot: 'explore', battle: 'explore', events: 'explore',
-      mbn_compte: 'compte', wallet: 'compte', playlists: 'compte',
+      mbn_compte: 'compte', wallet: 'compte', playlists: 'compte', library: 'compte',
       messages: 'compte', thread: 'compte', artist: 'compte', dashboard: 'compte',
     };
     const activeTab = mbnMap[State.view] || 'home';

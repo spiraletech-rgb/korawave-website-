@@ -2091,3 +2091,166 @@ img { display: block; }
 .mbn-compte-guest h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
 .mbn-compte-guest p { font-size: 14px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
 .btn-full { width: 100%; text-align: center; }
+
+/* ============================================================
+   ACCUEIL — Salut personnalisé (client connecté)
+   ============================================================ */
+.home-greeting {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 2px 0 26px;
+}
+.home-greeting .hg-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: var(--black);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700; flex: none;
+  box-shadow: 0 4px 18px rgba(201, 168, 76, .25);
+}
+.home-greeting .hg-hi {
+  font-size: 13px; color: var(--muted); letter-spacing: .3px;
+}
+.home-greeting .hg-name {
+  font-size: 26px; font-weight: 700; line-height: 1.15; margin-top: 2px;
+}
+@media (max-width: 640px) {
+  .home-greeting { margin-bottom: 20px; }
+  .home-greeting .hg-name { font-size: 22px; }
+  .home-greeting .hg-avatar { width: 46px; height: 46px; font-size: 19px; }
+}
+
+/* ============================================================
+   ACCUEIL CLIENT CONNECTÉ — calqué sur les maquettes KORAWAVE
+   ============================================================ */
+.home-c { max-width: 940px; }
+.hc-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.hc-ava {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: var(--black); display: flex; align-items: center; justify-content: center;
+  font-size: 19px; font-weight: 700; flex: none;
+  box-shadow: 0 4px 16px rgba(201, 168, 76, .25);
+}
+.hc-heart {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--dark2); border: 1px solid var(--border);
+  color: var(--muted); font-size: 19px; display: flex;
+  align-items: center; justify-content: center; transition: .15s;
+}
+.hc-heart:hover { color: var(--gold); border-color: var(--gold); }
+.hc-hello {
+  font-size: 30px; font-weight: 700; line-height: 1.15; margin-bottom: 18px;
+}
+.hc-hello span { color: var(--gold-light); }
+
+.hc-pills {
+  display: flex; gap: 9px; overflow-x: auto; margin-bottom: 26px;
+  padding-bottom: 4px; scrollbar-width: none;
+}
+.hc-pills::-webkit-scrollbar { display: none; }
+.home-pill {
+  padding: 8px 18px; border-radius: 999px; white-space: nowrap;
+  background: var(--dark2); color: var(--muted);
+  border: 1px solid var(--border); font-size: 13px; font-weight: 600;
+  transition: .15s; flex: none;
+}
+.home-pill:hover { color: var(--text); }
+.home-pill.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+
+.hc-sec { margin-bottom: 30px; }
+.hc-sec-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px;
+}
+.hc-sec-head h2 { font-size: 19px; font-weight: 700; }
+.hc-seeall { background: none; border: none; color: var(--gold); font-size: 13px; font-weight: 600; }
+.hc-seeall:hover { color: var(--gold-light); }
+
+/* Grande carte « À découvrir » (style Discover weekly) */
+.disc-card {
+  display: flex; align-items: center; gap: 18px;
+  border-radius: 18px; padding: 22px 24px; cursor: pointer;
+  background: linear-gradient(120deg, #3a1f63 0%, #6a2c8a 58%, #9c3f7d 100%);
+  box-shadow: 0 12px 34px rgba(106, 44, 138, .34); transition: transform .18s;
+  overflow: hidden;
+}
+.disc-card:hover { transform: translateY(-2px); }
+.disc-card-info { flex: 1; min-width: 0; }
+.disc-card-kick { font-size: 12px; color: rgba(255,255,255,.8); letter-spacing: .3px; margin-bottom: 8px; }
+.disc-card-title {
+  font-size: 25px; font-weight: 800; color: #fff; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.disc-card-sub { font-size: 14px; color: rgba(255,255,255,.75); margin-top: 5px; }
+.disc-card-play {
+  display: inline-block; margin-top: 15px; background: var(--gold); color: var(--black);
+  padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 700;
+}
+.disc-card-art {
+  width: 100px; height: 100px; border-radius: 14px; overflow: hidden; flex: none;
+  background: rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center;
+}
+.disc-card-art img { width: 100%; height: 100%; object-fit: cover; }
+.disc-card-art .ph { font-size: 40px; }
+
+/* Liste « Top du jour » */
+.hlist { display: flex; flex-direction: column; gap: 4px; }
+.hrow {
+  display: flex; align-items: center; gap: 13px; padding: 9px 10px;
+  border-radius: 12px; cursor: pointer; transition: background .15s;
+}
+.hrow:hover { background: var(--dark2); }
+.hrow-art {
+  width: 52px; height: 52px; border-radius: 10px; overflow: hidden; flex: none;
+  background: var(--dark3); display: flex; align-items: center; justify-content: center;
+}
+.hrow-art img { width: 100%; height: 100%; object-fit: cover; }
+.hrow-art .ph { font-size: 22px; color: var(--muted); }
+.hrow-info { flex: 1; min-width: 0; }
+.hrow-title {
+  font-size: 14.5px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hrow-sub {
+  font-size: 12.5px; color: var(--muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hrow-like { background: none; border: none; color: var(--muted); font-size: 19px; padding: 4px; flex: none; transition: .15s; }
+.hrow-like:hover { color: var(--gold); }
+.hrow-play {
+  width: 36px; height: 36px; border-radius: 50%; flex: none; border: none;
+  background: var(--gold-dim); color: var(--gold); font-size: 12px; transition: .15s;
+}
+.hrow-play:hover { background: var(--gold); color: var(--black); }
+
+@media (max-width: 640px) {
+  .hc-hello { font-size: 25px; }
+  .disc-card { padding: 18px; gap: 14px; }
+  .disc-card-title { font-size: 21px; }
+  .disc-card-art { width: 82px; height: 82px; }
+}
+
+/* ============================================================
+   MES MUSIQUES — bibliothèque (maquette screen 1)
+   ============================================================ */
+.lib { max-width: 940px; }
+.lib-head {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+}
+.lib-head h1 { flex: 1; font-size: 22px; font-weight: 700; text-align: center; }
+.lib-back, .lib-more {
+  width: 40px; height: 40px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--dark2); border: 1px solid var(--border);
+  color: var(--text); font-size: 22px; transition: .15s;
+}
+.lib-back { cursor: pointer; }
+.lib-back:hover { border-color: var(--gold); color: var(--gold); }
+.lib-more { color: var(--muted); font-size: 20px; }
+.lib-pills { margin-bottom: 22px; }
+.hrow-art.pl-ico { font-size: 24px; background: var(--gold-dim); }
