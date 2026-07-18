@@ -354,7 +354,17 @@
 
     // ── ADMIN ─────────────────────────────────────────────────────────────────
     if (path === '/admin/stats') {
-      return { url: v1('/admin/dashboard', ''), adapt: (d) => ({ users: d.totalUsers || d.users || 0, artists: d.totalArtists || d.artists || 0, tracks: d.totalTracks || d.tracks || 0, videos: d.totalVideos || d.videos || 0, revenue: d.totalRevenue || d.revenue || 0, plays: d.totalPlays || d.plays || 0 }) };
+      return { url: v1('/admin/dashboard', ''), adapt: (d) => {
+        const o = d.overview || d; const r = d.revenue || {};
+        return {
+          users: o.total_users || o.totalUsers || 0,
+          artists: o.total_artists || o.totalArtists || 0,
+          tracks: o.total_tracks || o.totalTracks || 0,
+          videos: o.total_videos || o.totalVideos || 0,
+          revenue: r.total_koins_spent || o.total_revenue || 0,
+          plays: o.total_plays || 0,
+        };
+      } };
     }
     if (path === '/admin/artists') return { url: v1('/admin/artists', ''), adapt: (d) => ({ artists: d.artists || d.data || d || [] }) };
     if (path === '/admin/comments') return { url: v1('/admin/comments', '') };
