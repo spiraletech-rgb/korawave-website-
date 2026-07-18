@@ -76,9 +76,13 @@
   }
 
   // ---------- API NestJS ----------
-  const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? 'http://localhost:3000'
-    : (window.KW_API_URL || 'https://korawave-api.onrender.com');
+  // Override possible pour le dev : window.KW_API_URL ou localStorage 'kw_api'
+  // (permet de tester le front local contre le backend Render).
+  const API_BASE = window.KW_API_URL
+    || (typeof localStorage !== 'undefined' && localStorage.getItem('kw_api'))
+    || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://localhost:3000'
+        : 'https://korawave-api.onrender.com');
 
   const KW_KOIN_PACKS = [
     { id: 'p1', koins: 100, price: 10000, label: '100 KOINS' },
@@ -86,17 +90,26 @@
     { id: 'p3', koins: 1000, price: 80000, label: '1000 KOINS' },
   ];
 
+  // Cloudinary : dérive une image (frame) d'une vidéo en changeant l'extension en .jpg.
+  // Sert de miniature/pochette quand la vidéo n'a ni cover ni thumbnail.
+  function cloudinaryPoster(url) {
+    if (!url || !url.includes('res.cloudinary.com') || !url.includes('/video/upload/')) return '';
+    return url.split('?')[0].replace(/\.(mp4|webm|mov|m4v|avi|mkv)$/i, '.jpg');
+  }
+
   function adaptTrack(t) {
     if (!t) return null;
+    const vurl = t.video_url || t.videoUrl || '';
+    const poster = cloudinaryPoster(vurl);
     return {
       id: t.id, title: t.title || '',
       artist: t.artist_name || t.artist || '—',
       ownerId: t.artist_id || t.ownerId || '',
       artistId: t.artist_id || t.artistId || '',
       audioUrl: t.audio_url || t.audioUrl || '',
-      videoUrl: t.video_url || t.videoUrl || '',
-      coverUrl: t.cover_url || t.coverUrl || '',
-      thumbUrl: t.thumbnail_url || t.thumbUrl || '',
+      videoUrl: vurl,
+      coverUrl: t.cover_url || t.coverUrl || poster || '',
+      thumbUrl: t.thumbnail_url || t.thumbUrl || t.cover_url || poster || '',
       genre: t.genre || '',
       price: Number(t.price_gnf != null ? t.price_gnf : (t.price || 0)),
       plays: Number(t.plays_count != null ? t.plays_count : (t.plays || 0)),
@@ -4253,8 +4266,9 @@
       // Streaming complet via MSE — aucune URL audio exposée au navigateur
       startMSEStream(t.id);
     } else {
-      // Aperçu 10s ou non connecté — URL signée directe (expire dans 30 min)
-      audio.src = t.audioUrl;
+      // Aperçu 10s (invité ou pilule preview) : clip limité servi par le backend
+      // (le titre complet n'est jamais exposé).
+      audio.src = `${API_BASE}/api/v1/tracks/${t.id}/preview`;
       audio.play().catch(() => {});
     }
     $('#playBtn').textContent = '⏸';
@@ -4266,6 +4280,7 @@
     // Pourboire : visible si le titre appartient à un artiste (≠ contenu admin) et que je suis connecté
     $('#npTip').style.display = (State.user && t.ownerId && t.ownerId !== State.user.id) ? 'block' : 'none';
     updateLikeBtn();
+    syncFullMeta();
     api(`/tracks/${t.id}/play`, { method: 'POST' }).then((r) => { t.plays = r.plays; }).catch(() => {});
   }
 
@@ -4307,16 +4322,71 @@
       audio.play(); $('#playBtn').textContent = '⏸';
     } else { audio.pause(); $('#playBtn').textContent = '▶'; }
   }
-  function nextTrack() { if (State.queueIndex < State.queue.length - 1) { State.queueIndex++; loadCurrent(!canPlayFull()); } }
+  function nextTrack() {
+    if (shuffleOn && State.queue.length > 1) {
+      let i = State.queueIndex;
+      while (i === State.queueIndex) i = Math.floor(Math.random() * State.queue.length);
+      State.queueIndex = i; loadCurrent(!canPlayFull()); return;
+    }
+    if (State.queueIndex < State.queue.length - 1) { State.queueIndex++; loadCurrent(!canPlayFull()); }
+  }
   function prevTrack() {
     if (!State.previewMode && audio.currentTime > 3) { audio.currentTime = 0; return; }
     if (State.queueIndex > 0) { State.queueIndex--; loadCurrent(!canPlayFull()); }
   }
 
   function updateLikeBtn() {
-    const btn = $('#npLike');
     if (!State.current) return;
-    btn.classList.toggle('on', State.likedIds.has('audio:' + State.current.id));
+    const on = State.likedIds.has('audio:' + State.current.id);
+    $('#npLike').classList.toggle('on', on);
+    $('#npfLike')?.classList.toggle('on', on);
+  }
+
+  // ── LECTEUR PLEIN ÉCRAN (Now Playing) — reflète l'audio unique ─────────────
+  let shuffleOn = false;
+  function openFullPlayer() {
+    if (!State.current) return;
+    syncFullMeta();
+    updateFullProgress();
+    syncFullPlay(!audio.paused);
+    const el = $('#nowPlaying');
+    el.classList.add('open'); el.setAttribute('aria-hidden', 'false');
+  }
+  function closeFullPlayer() {
+    const el = $('#nowPlaying');
+    el.classList.remove('open'); el.setAttribute('aria-hidden', 'true');
+  }
+  function syncFullMeta() {
+    const t = State.current; if (!t) return;
+    $('#npfTitle').textContent = t.title;
+    $('#npfArtist').textContent = t.artist || '';
+    const cover = $('#npfCover'), bg = $('#npfBg');
+    if (t.coverUrl) {
+      cover.style.backgroundImage = `url("${t.coverUrl}")`; cover.classList.remove('empty'); cover.textContent = '';
+      bg.style.backgroundImage = `url("${t.coverUrl}")`;
+    } else {
+      cover.style.backgroundImage = ''; cover.classList.add('empty'); cover.textContent = '♪';
+      bg.style.backgroundImage = '';
+    }
+    updateLikeBtn();
+  }
+  function updateFullProgress() {
+    const fill = $('#npfFill'); if (!fill) return;
+    if (State.previewMode) {
+      const elapsed = Math.max(0, audio.currentTime - State.previewStart);
+      fill.style.width = Math.min(100, (elapsed / PREVIEW_SECS) * 100) + '%';
+      $('#npfCur').textContent = fmtTime(elapsed);
+      $('#npfDur').textContent = '0:10';
+    } else {
+      fill.style.width = (audio.currentTime / (audio.duration || 1)) * 100 + '%';
+      $('#npfCur').textContent = fmtTime(audio.currentTime);
+      if (audio.duration) $('#npfDur').textContent = fmtTime(audio.duration);
+    }
+  }
+  function syncFullPlay(isPlaying) {
+    const btn = $('#npfPlay'), disc = $('#npfDisc');
+    if (btn) btn.textContent = isPlaying ? '⏸' : '▶';
+    if (disc) disc.classList.toggle('paused', !isPlaying);
   }
 
   async function toggleLike(type, id) {
@@ -4354,6 +4424,11 @@
     if (!State.previewMode) $('#durTime').textContent = fmtTime(audio.duration);
   });
   audio.addEventListener('ended', () => { if (!State.previewMode) nextTrack(); });
+  // Synchronisation du lecteur plein écran (reflète le même <audio>)
+  audio.addEventListener('timeupdate', updateFullProgress);
+  audio.addEventListener('loadedmetadata', updateFullProgress);
+  audio.addEventListener('play', () => syncFullPlay(true));
+  audio.addEventListener('pause', () => syncFullPlay(false));
 
   // ============================================================
   //  LECTEUR VIDÉO (modale)
@@ -4633,6 +4708,26 @@
     $('#nextBtn').onclick = nextTrack;
     $('#prevBtn').onclick = prevTrack;
     $('#npLike').onclick = () => { if (State.current) toggleLike('audio', State.current.id); };
+
+    // ── Lecteur plein écran (Now Playing) ──
+    $('#npfClose').onclick = closeFullPlayer;
+    $('#npfPlay').onclick = togglePlay;
+    $('#npfPrev').onclick = prevTrack;
+    $('#npfNext').onclick = nextTrack;
+    $('#npfLike').onclick = () => { if (State.current) toggleLike('audio', State.current.id); };
+    $('#npfShuffle').onclick = (e) => { shuffleOn = !shuffleOn; e.currentTarget.classList.toggle('on', shuffleOn); toast(shuffleOn ? '🔀 Lecture aléatoire activée' : 'Lecture aléatoire désactivée'); };
+    $('#npfQueue').onclick = () => toast('File d\'attente — bientôt disponible');
+    $('#npfProgress').onclick = (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      if (State.previewMode) { try { audio.currentTime = State.previewStart + pct * PREVIEW_SECS; } catch (err) {} if (audio.paused) audio.play(); return; }
+      if (audio.duration) audio.currentTime = pct * audio.duration;
+    };
+    // Ouvrir le grand format en touchant le mini-player (hors boutons ♥ / 💝)
+    document.querySelector('.player .np')?.addEventListener('click', (e) => {
+      if (e.target.closest('#npLike') || e.target.closest('#npTip')) return;
+      if (State.current) openFullPlayer();
+    });
     $('#volume').oninput = (e) => { audio.volume = e.target.value / 100; };
     audio.volume = 0.8;
     $('#previewUnlock').onclick = unlockFull;

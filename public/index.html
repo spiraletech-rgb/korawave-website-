@@ -157,6 +157,40 @@
       </div>
     </footer>
 
+    <!-- ============ LECTEUR PLEIN ÉCRAN (NOW PLAYING) ============ -->
+    <div class="np-full" id="nowPlaying" aria-hidden="true">
+      <div class="npf-bg" id="npfBg"></div>
+      <div class="npf-inner">
+        <div class="npf-head">
+          <button class="npf-icon" id="npfClose" title="Réduire">⌄</button>
+          <span class="npf-kick">En lecture</span>
+          <button class="npf-icon" id="npfLike" title="J'aime">♡</button>
+        </div>
+        <div class="npf-disc-wrap">
+          <div class="npf-disc paused" id="npfDisc">
+            <div class="npf-disc-img" id="npfCover"></div>
+            <div class="npf-disc-hole"></div>
+          </div>
+        </div>
+        <div class="npf-meta">
+          <h2 class="npf-title" id="npfTitle">—</h2>
+          <p class="npf-artist" id="npfArtist"></p>
+        </div>
+        <div class="npf-progress-row">
+          <span class="t" id="npfCur">0:00</span>
+          <div class="npf-progress" id="npfProgress"><div class="npf-fill" id="npfFill"></div></div>
+          <span class="t" id="npfDur">0:00</span>
+        </div>
+        <div class="npf-controls">
+          <button class="npf-c" id="npfShuffle" title="Aléatoire">🔀</button>
+          <button class="npf-c" id="npfPrev" title="Précédent">⏮</button>
+          <button class="npf-play" id="npfPlay" title="Lecture / Pause">▶</button>
+          <button class="npf-c" id="npfNext" title="Suivant">⏭</button>
+          <button class="npf-c" id="npfQueue" title="File d'attente">≣</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ============ NAVIGATION BAS MOBILE ============ -->
     <nav class="mobile-bottomnav" id="mobileBottomNav">
       <button class="mbn-tab mbn-active" data-mbn="home">
