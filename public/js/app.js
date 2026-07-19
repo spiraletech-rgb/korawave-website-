@@ -363,6 +363,7 @@
           videos: o.total_videos || o.totalVideos || 0,
           revenue: r.total_koins_spent || o.total_revenue || 0,
           plays: o.total_plays || 0,
+          totalPlays: o.total_plays || 0,
         };
       } };
     }
