@@ -246,6 +246,7 @@
     if (path === '/tracks') return { url: v1('/tracks?limit=100', ''), adapt: (d) => ({ tracks: (d.data || d.tracks || []).map(adaptTrack) }) };
     if (path === '/videos') return { url: v1('/tracks?content_type=video&limit=50', ''), adapt: (d) => ({ videos: (d.data || []).map(adaptTrack) }) };
     if (path === '/top-guinee') return { url: v1('/battle/top-guinee', '') };
+    if (path === '/radio') return { url: v1('/humeur/radio', qs), adapt: (d) => ({ tracks: (d.tracks || d.data || []).map(adaptTrack) }) };
     if (path === '/search') return { url: v1('/tracks/search', qs), adapt: (d) => ({ tracks: (Array.isArray(d) ? d : (d.data || [])).map(adaptTrack), artists: [] }) };
 
     // ── PLAYLISTS ─────────────────────────────────────────────────────────────
