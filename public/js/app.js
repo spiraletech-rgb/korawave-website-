@@ -3752,12 +3752,25 @@
     }
   }
 
+  // Lit la durée réelle d'un fichier média (audio/vidéo) côté navigateur.
+  function lireDureeMedia(file, isVideo) {
+    return new Promise((resolve) => {
+      const el = document.createElement(isVideo ? 'video' : 'audio');
+      el.preload = 'metadata';
+      el.onloadedmetadata = () => { const d = el.duration; URL.revokeObjectURL(el.src); resolve(isFinite(d) ? Math.round(d) : 0); };
+      el.onerror = () => resolve(0);
+      el.src = URL.createObjectURL(file);
+    });
+  }
+
   async function submitAudio(e) {
     e.preventDefault();
     const form = e.target;
     const state = $('#audioState');
     if (!form.audio.files[0]) { state.className = 'submit-state err'; state.textContent = 'Sélectionne un fichier audio.'; return; }
     const fd = new FormData(form);
+    const dur = await lireDureeMedia(form.audio.files[0], false);
+    if (dur) fd.set('duration_sec', String(dur));
     state.className = 'submit-state'; state.textContent = 'Téléversement en cours…';
     const btn = form.querySelector('button'); btn.disabled = true;
     try {
@@ -3774,6 +3787,8 @@
     const state = $('#videoState');
     if (!form.video.files[0]) { state.className = 'submit-state err'; state.textContent = 'Sélectionne un fichier vidéo.'; return; }
     const fd = new FormData(form);
+    const dur = await lireDureeMedia(form.video.files[0], true);
+    if (dur) fd.set('duration_sec', String(dur));
     state.className = 'submit-state'; state.textContent = 'Téléversement en cours…';
     const btn = form.querySelector('button'); btn.disabled = true;
     try {
@@ -4391,9 +4406,10 @@
       $('#npfCur').textContent = fmtTime(elapsed);
       $('#npfDur').textContent = '0:10';
     } else {
-      fill.style.width = (audio.currentTime / (audio.duration || 1)) * 100 + '%';
+      const d = effDur();
+      fill.style.width = (audio.currentTime / (d || 1)) * 100 + '%';
       $('#npfCur').textContent = fmtTime(audio.currentTime);
-      if (audio.duration) $('#npfDur').textContent = fmtTime(audio.duration);
+      $('#npfDur').textContent = fmtTime(d);
     }
   }
   function syncFullPlay(isPlaying) {
@@ -4416,10 +4432,15 @@
   }
 
   const fmtTime = (s) => {
-    if (!s || isNaN(s)) return '0:00';
+    if (!s || !isFinite(s)) return '0:00';
     const m = Math.floor(s / 60), sec = Math.floor(s % 60);
     return m + ':' + String(sec).padStart(2, '0');
   };
+  // Durée effective : audio.duration si fini (fichiers directs), sinon la durée connue du
+  // titre (duration_sec en base) — car en streaming MSE audio.duration vaut Infinity.
+  const effDur = () => (isFinite(audio.duration) && audio.duration > 0)
+    ? audio.duration
+    : ((State.current && State.current.duration) || 0);
 
   audio.addEventListener('timeupdate', () => {
     if (State.previewMode) {
@@ -4430,11 +4451,13 @@
       if (elapsed >= PREVIEW_SECS) endPreview();
       return;
     }
-    $('#progressFill').style.width = (audio.currentTime / (audio.duration || 1)) * 100 + '%';
+    const d = effDur();
+    $('#progressFill').style.width = (audio.currentTime / (d || 1)) * 100 + '%';
     $('#curTime').textContent = fmtTime(audio.currentTime);
+    $('#durTime').textContent = fmtTime(d);
   });
   audio.addEventListener('loadedmetadata', () => {
-    if (!State.previewMode) $('#durTime').textContent = fmtTime(audio.duration);
+    if (!State.previewMode) $('#durTime').textContent = fmtTime(effDur());
   });
   audio.addEventListener('ended', () => { if (!State.previewMode) nextTrack(); });
   // Synchronisation du lecteur plein écran (reflète le même <audio>)
@@ -4734,7 +4757,7 @@
       const rect = e.currentTarget.getBoundingClientRect();
       const pct = (e.clientX - rect.left) / rect.width;
       if (State.previewMode) { try { audio.currentTime = State.previewStart + pct * PREVIEW_SECS; } catch (err) {} if (audio.paused) audio.play(); return; }
-      if (audio.duration) audio.currentTime = pct * audio.duration;
+      { const d = effDur(); if (d) audio.currentTime = pct * d; }
     };
     // Ouvrir le grand format en touchant le mini-player (hors boutons ♥ / 💝)
     document.querySelector('.player .np')?.addEventListener('click', (e) => {
@@ -4754,7 +4777,7 @@
         if (audio.paused) { audio.play(); $('#playBtn').textContent = '⏸'; hidePreviewBanner(); }
         return;
       }
-      if (audio.duration) audio.currentTime = pct * audio.duration;
+      { const d = effDur(); if (d) audio.currentTime = pct * d; }
     };
 
     // Topnav clicks (main nav + conditional navs)
