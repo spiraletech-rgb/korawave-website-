@@ -1070,6 +1070,7 @@
           </div>
           <div class="hero-cta">
             <button class="btn btn-gold" id="heroDownload">Télécharger</button>
+            <button class="btn btn-outline" id="radioBtn">📻 Radio KORAWAVE</button>
             <button class="btn btn-outline" id="heroProBtn">Korawave Pro</button>
           </div>
         </div>
