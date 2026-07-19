@@ -4473,15 +4473,19 @@
     const base = `${API_BASE}/api/v1/tracks/${id}/stream/video`;
     return State.token ? `${base}?token=${encodeURIComponent(State.token)}` : null;
   }
+  // Aperçu vidéo 10s servi par le backend (clip limité — vidéo complète jamais exposée)
+  function videoPreviewUrl(id) {
+    return `${API_BASE}/api/v1/tracks/${id}/preview/video`;
+  }
 
   function playVideo(id, forcePreview) {
     const v = State.videos.find((x) => x.id === id);
     if (!v) return;
     if (v.released === false) { toast('🔒 Disponible le ' + fmtDateTime(v.releaseAt)); return; }
     const preview = forcePreview !== undefined ? forcePreview : !canPlayFull();
-    // Pour la lecture complète, on utilise le proxy serveur (?token=JWT) — jamais l'URL Cloudinary directe.
-    // Pour l'aperçu (non connecté), on utilise l'URL signée (courte durée).
-    const videoSrc = (!preview && videoStreamUrl(id)) ? videoStreamUrl(id) : v.videoUrl;
+    // Lecture complète : proxy serveur (?token=JWT) — jamais l'URL Cloudinary directe.
+    // Aperçu : clip 10s servi par le backend (la vidéo complète n'est jamais exposée).
+    const videoSrc = (!preview && videoStreamUrl(id)) ? videoStreamUrl(id) : videoPreviewUrl(id);
     audio.pause(); $('#playBtn').textContent = '▶'; hidePreviewBanner();
     const m = el(`
       <div class="overlay">
