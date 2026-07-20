@@ -110,6 +110,8 @@
   function optimImg(url, w) {
     if (!url || typeof url !== 'string') return '';
     if (!url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url;
+    // URL signée (/s--XXX--/) : insérer une transformation casserait la signature -> on laisse tel quel.
+    if (/\/s--[\w-]+--\//.test(url)) return url;
     const lite = !!State.liteMode;
     const q = lite ? 'q_auto:low' : 'q_auto';
     const width = w ? (lite ? Math.round(w * 0.6) : w) : 0;
