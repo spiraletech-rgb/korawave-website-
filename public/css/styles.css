@@ -2357,3 +2357,17 @@ img { display: block; }
 @media (max-width: 480px) {
   .npf-title { font-size: 21px; }
 }
+
+/* ── MODE LÉGER (connexion faible / économiseur de données) ───────────────── */
+/* Coupe tout le superflu coûteux : aperçu vidéo au survol, animations, ombres. */
+.lite-mode .card-vid,
+.lite-mode .card-vid-bar,
+.lite-mode .hero-disc,
+.lite-mode .hero-visual { display: none !important; }
+.lite-mode *,
+.lite-mode *::before,
+.lite-mode *::after { animation: none !important; transition: none !important; }
+.lite-mode .card:hover { transform: none; }
+.lite-mode *[style*="backdrop-filter"],
+.lite-mode .glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.lite-badge { font-size: 11px; color: var(--gold); border: 1px solid var(--gold); border-radius: 20px; padding: 2px 8px; }

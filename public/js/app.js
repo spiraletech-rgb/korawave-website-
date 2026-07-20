@@ -32,6 +32,14 @@
     previewItem: null,    // {type:'audio'|'video', id}
     walletData: null,     // { balance, transactions, owned }
     notif: { notifications: [], unread: 0 },
+    // Mode léger (connexion faible) : override manuel (kw_lite) sinon auto-détection 2G/économiseur.
+    liteMode: (() => {
+      const saved = localStorage.getItem('kw_lite');
+      if (saved === '1') return true;
+      if (saved === '0') return false;
+      const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      return !!(c && (c.saveData || /(^|\W)(slow-2g|2g)$/.test(c.effectiveType || '')));
+    })(),
   };
 
   const PREVIEW_SECS = 10; // 10 secondes EXACTES (CLAUDE.md — non modifiable)
@@ -97,6 +105,18 @@
     return url.split('?')[0].replace(/\.(mp4|webm|mov|m4v|avi|mkv)$/i, '.jpg');
   }
 
+  // Optimise une image Cloudinary : format auto (WebP/AVIF), compression, redimensionnement.
+  // Gros gain de poids sur connexion faible. En mode léger : qualité et taille encore réduites.
+  function optimImg(url, w) {
+    if (!url || typeof url !== 'string') return '';
+    if (!url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url;
+    const lite = !!State.liteMode;
+    const q = lite ? 'q_auto:low' : 'q_auto';
+    const width = w ? (lite ? Math.round(w * 0.6) : w) : 0;
+    const tf = ['f_auto', q].concat(width ? ['w_' + width, 'c_fill'] : []).join(',');
+    return url.replace('/upload/', '/upload/' + tf + '/');
+  }
+
   function adaptTrack(t) {
     if (!t) return null;
     const vurl = t.video_url || t.videoUrl || '';
@@ -108,8 +128,8 @@
       artistId: t.artist_id || t.artistId || '',
       audioUrl: t.audio_url || t.audioUrl || '',
       videoUrl: vurl,
-      coverUrl: t.cover_url || t.coverUrl || poster || '',
-      thumbUrl: t.thumbnail_url || t.thumbUrl || t.cover_url || poster || '',
+      coverUrl: optimImg(t.cover_url || t.coverUrl || poster || '', 400),
+      thumbUrl: optimImg(t.thumbnail_url || t.thumbUrl || t.cover_url || poster || '', 400),
       genre: t.genre || '',
       price: Number(t.price_gnf != null ? t.price_gnf : (t.price || 0)),
       plays: Number(t.plays_count != null ? t.plays_count : (t.plays || 0)),
@@ -129,7 +149,7 @@
       id: a.id,
       name: a.name || a.display_name || '—',
       bio: a.bio || '',
-      avatarUrl: a.avatar_url || a.avatarUrl || '',
+      avatarUrl: optimImg(a.avatar_url || a.avatarUrl || '', 120),
       country: a.country || 'GN',
       verified: !!(a.verified),
       userId: a.user_id || a.userId || '',
@@ -3992,6 +4012,7 @@
           <button class="mbn-compte-link" data-view="messages"><span class="mbn-lk-ic">💬</span> Messages</button>
           ${State.user.role === 'artist' ? `<button class="mbn-compte-link" data-view="artist"><span class="mbn-lk-ic">🎤</span> Mon Espace Artiste</button>` : ''}
           ${State.user.role === 'admin' ? `<button class="mbn-compte-link" data-view="dashboard"><span class="mbn-lk-ic">📊</span> Dashboard Admin</button>` : ''}
+          <button class="mbn-compte-link" onclick="kwToggleLite()"><span class="mbn-lk-ic">⚡</span> Mode léger : <strong>${State.liteMode ? 'ACTIVÉ' : 'désactivé'}</strong></button>
           <button class="mbn-compte-link" id="mbnLogout"><span class="mbn-lk-ic">⏻</span> Déconnexion</button>
         </div>
       </div>`;
@@ -4003,6 +4024,7 @@
       <div class="mbn-compte-links">
         <button class="btn btn-gold btn-full" id="mbnRegister">S'inscrire</button>
         <button class="btn btn-ghost btn-full" id="mbnLogin">Se connecter</button>
+        <button class="btn btn-ghost btn-full" onclick="kwToggleLite()">⚡ Mode léger : <strong>${State.liteMode ? 'ACTIVÉ' : 'désactivé'}</strong></button>
       </div>
     </div>`;
   }
@@ -4969,6 +4991,7 @@
     let _hvid = null, _hInv = null;
 
     document.addEventListener('mouseover', (e) => {
+      if (State.liteMode) return; // pas d'aperçu vidéo auto en mode léger (économie de données)
       const art = e.target.closest('[data-hover-video]');
       if (!art) return;
       const vid = art.querySelector('.card-vid');
@@ -5011,7 +5034,21 @@
   // ============================================================
   //  INIT
   // ============================================================
+  // Applique/retire le mode léger (classe body + persistance).
+  function applyLiteMode() {
+    document.body.classList.toggle('lite-mode', !!State.liteMode);
+  }
+  function toggleLite() {
+    State.liteMode = !State.liteMode;
+    localStorage.setItem('kw_lite', State.liteMode ? '1' : '0');
+    applyLiteMode();
+    // Recharger pour ré-optimiser les images à la nouvelle qualité/taille.
+    location.reload();
+  }
+  window.kwToggleLite = toggleLite; // accessible depuis le bouton du menu
+
   async function init() {
+    applyLiteMode();
     // Page publique de partage d'extrait : /titre/:id
     const shareMatch = location.pathname.match(/^\/titre\/([^/]+)$/);
     if (shareMatch) { await renderSharePage(shareMatch[1]); return; }
