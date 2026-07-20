@@ -875,7 +875,7 @@
         <span class="tag ${scheduled ? 'tag-soon' : ''}">${scheduled ? 'Bientôt' : 'Clip'}</span>
         <div class="card-art" data-hover-video="${esc(v.id)}">
           ${thumb || `<div class="ph">🎬</div>`}
-          ${v.videoUrl && !scheduled ? `<video class="card-vid" src="${esc(v.videoUrl)}" muted playsinline preload="none" tabindex="-1"></video>` : ''}
+          ${v.videoUrl && !scheduled ? `<video class="card-vid" data-vsrc="${API_BASE}/api/v1/tracks/${esc(v.id)}/preview/video" muted loop playsinline preload="none" tabindex="-1"></video>` : ''}
           <div class="card-vid-bar"></div>
           ${scheduled ? '<div class="lock">🔒</div>' : `<button class="play-fab" data-playvideo="${v.id}">▶</button>`}
         </div>
@@ -4982,13 +4982,16 @@
         clearInterval(_hInv);
       }
       _hvid = vid;
+      // Chargement paresseux du clip d'aperçu (10s léger) au 1er survol seulement.
+      if (!vid.src && vid.dataset.vsrc) vid.src = vid.dataset.vsrc;
       art.classList.add('hv-on');
       vid.play().catch(() => {});
       const bar = art.querySelector('.card-vid-bar');
       _hInv = setInterval(() => {
         if (!_hvid) return clearInterval(_hInv);
-        if (bar) bar.style.width = Math.min(100, (_hvid.currentTime / PREVIEW_SECS) * 100) + '%';
-        if (_hvid.currentTime >= PREVIEW_SECS) { _hvid.pause(); clearInterval(_hInv); }
+        // Le clip fait ~10s et boucle : la barre reflète la position dans le clip.
+        const dur = isFinite(_hvid.duration) && _hvid.duration > 0 ? _hvid.duration : PREVIEW_SECS;
+        if (bar) bar.style.width = Math.min(100, (_hvid.currentTime / dur) * 100) + '%';
       }, 200);
     });
 
