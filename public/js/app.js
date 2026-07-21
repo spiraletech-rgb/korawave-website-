@@ -122,7 +122,11 @@
   function adaptTrack(t) {
     if (!t) return null;
     const vurl = t.video_url || t.videoUrl || '';
-    const poster = cloudinaryPoster(vurl);
+    // Poster public généré côté backend (frame JPG cacheable) — repli pour les vidéos
+    // sans pochette. Évite de dériver une frame d'une URL signée (ce qui casse la signature).
+    const backendPoster = (vurl && t.id) ? `${API_BASE}/api/v1/tracks/${t.id}/poster` : '';
+    const realCover = t.cover_url || t.coverUrl || '';
+    const realThumb = t.thumbnail_url || t.thumbUrl || t.cover_url || '';
     return {
       id: t.id, title: t.title || '',
       artist: t.artist_name || t.artist || '—',
@@ -130,8 +134,8 @@
       artistId: t.artist_id || t.artistId || '',
       audioUrl: t.audio_url || t.audioUrl || '',
       videoUrl: vurl,
-      coverUrl: optimImg(t.cover_url || t.coverUrl || poster || '', 400),
-      thumbUrl: optimImg(t.thumbnail_url || t.thumbUrl || t.cover_url || poster || '', 400),
+      coverUrl: realCover ? optimImg(realCover, 400) : backendPoster,
+      thumbUrl: realThumb ? optimImg(realThumb, 400) : backendPoster,
       genre: t.genre || '',
       price: Number(t.price_gnf != null ? t.price_gnf : (t.price || 0)),
       plays: Number(t.plays_count != null ? t.plays_count : (t.plays || 0)),
