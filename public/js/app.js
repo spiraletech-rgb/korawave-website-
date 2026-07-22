@@ -1047,8 +1047,11 @@
     const weekly = (hasPlays ? trending : newest).slice(0, 6);
     const shop = [...clips, ...tracks].slice(0, 4);
 
-    // Items du hero (avec visuel) : clips d'abord puis titres tendance.
-    const heroItems = [...videos, ...trending].filter((x) => x.coverUrl || x.thumbUrl).slice(0, 5);
+    // Hero = Top 10 du mois (albums/clips les plus écoutés, avec visuel).
+    const heroItems = [...tracks, ...videos]
+      .filter((x) => x.coverUrl || x.thumbUrl)
+      .sort((a, b) => (b.plays || 0) - (a.plays || 0))
+      .slice(0, 10);
 
     // Artistes uniques (à partir des titres/clips).
     const artMap = new Map();
@@ -1065,10 +1068,11 @@
       const isVid = it.type === 'video' || !!it.videoUrl;
       const bg = it.coverUrl || it.thumbUrl || '';
       return `
-        <div class="hero-slide ${i === 0 ? 'on' : ''}" ${isVid ? `data-playvideo="${it.id}"` : `data-play="${it.id}"`}>
+        <div class="hero-slide" data-hero-i="${i}" ${isVid ? `data-playvideo="${it.id}"` : `data-play="${it.id}"`}>
           <div class="hero-bg" style="background-image:url('${esc(bg)}')"></div>
+          <span class="hero-rank">#${i + 1}</span>
           <div class="hero-txt">
-            <div class="hero-kick">✨ À la une</div>
+            <div class="hero-kick">🔥 Top 10 du mois</div>
             <h1 class="hero-title">${esc(it.title)}</h1>
             <p class="hero-sub">${esc(it.artist)}</p>
             <span class="hero-cta">▶ ${isVid ? 'Regarder' : 'Écouter'}</span>
@@ -1156,22 +1160,38 @@
       </div>`;
   }
 
-  // Carousel du hero (albums qui défilent en rond) — rotation auto + points.
+  // Carousel du hero en COVERFLOW 3D : la carte centrale au premier plan, les
+  // voisines en retrait à gauche/droite, rotation auto sur le Top 10.
   function mountHeroCar() {
     const car = document.getElementById('heroCar');
     clearInterval(window._heroInv);
     if (!car) return;
     const slides = [...car.querySelectorAll('.hero-slide')];
     const dots = [...car.querySelectorAll('[data-hero-dot]')];
-    if (slides.length < 2) return;
-    let i = 0;
-    const show = (n) => {
-      i = (n + slides.length) % slides.length;
-      slides.forEach((s, k) => s.classList.toggle('on', k === i));
-      dots.forEach((d, k) => d.classList.toggle('on', k === i));
+    const n = slides.length;
+    if (!n) return;
+    let cur = 0;
+    const layout = () => {
+      slides.forEach((s, k) => {
+        let off = (k - cur + n) % n;      // 0..n-1
+        if (off > n / 2) off -= n;        // plus proche voisin (négatif à gauche)
+        s.classList.remove('p-c', 'p-l', 'p-r', 'p-ll', 'p-rr');
+        if (off === 0) s.classList.add('p-c');
+        else if (off === 1) s.classList.add('p-r');
+        else if (off === -1) s.classList.add('p-l');
+        else if (off === 2) s.classList.add('p-rr');
+        else if (off === -2) s.classList.add('p-ll');
+      });
+      dots.forEach((d, k) => d.classList.toggle('on', k === cur));
     };
-    window._heroInv = setInterval(() => show(i + 1), 5000);
-    dots.forEach((d, k) => d.addEventListener('click', (e) => { e.stopPropagation(); show(k); }));
+    const go = (i) => { cur = (i + n) % n; layout(); };
+    layout();
+    if (n > 1) window._heroInv = setInterval(() => go(cur + 1), 4000);
+    dots.forEach((d, k) => d.addEventListener('click', (e) => { e.stopPropagation(); go(k); }));
+    // Clic sur une carte latérale : l'amener au centre (sans lancer la lecture).
+    slides.forEach((s, k) => s.addEventListener('click', (e) => {
+      if (!s.classList.contains('p-c')) { e.stopPropagation(); go(k); }
+    }, true));
   }
 
   function mountSliders() {
