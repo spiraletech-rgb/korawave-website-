@@ -1119,11 +1119,6 @@
     return `
       <div class="home-dash">
         <div class="hd-main">
-          <div class="hd-topstrip">
-            <div class="hd-hello">${State.user ? `${greetWord}, <span>${esc(prenom || 'toi')}</span> 👋` : 'La musique guinéenne, <span>enfin chez elle</span>.'}</div>
-            <button class="hero-cta" id="radioBtn" style="background:var(--gold-dim);color:var(--gold-light);border:1px solid var(--gold-dim2)">📻 Radio KORAWAVE</button>
-          </div>
-
           ${heroItems.length ? `
           <div class="hero-car" id="heroCar">
             ${heroItems.map(heroSlide).join('')}
