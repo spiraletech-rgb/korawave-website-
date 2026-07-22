@@ -2458,3 +2458,56 @@ body { background: radial-gradient(1200px 600px at 15% -10%, #241146 0%, transpa
 .shop-info{ flex:1; min-width:0; } .shop-t{ font-size:12.5px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .shop-s{ font-size:11px; color:var(--muted); }
 .shop-buy{ background:var(--gold-dim); color:var(--gold-light); border:1px solid var(--gold-dim2); border-radius:20px; padding:5px 12px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; }
 .hd-panel .panel-all{ width:100%; margin-top:10px; background:transparent; border:1px solid var(--violet-line); color:#e9e2f5; border-radius:22px; padding:9px; font-size:12px; font-weight:700; cursor:pointer; }
+
+/* ============================================================
+   RESPONSIVE — HERO COVERFLOW + DASHBOARD (PC / tablette / mobile)
+   ============================================================ */
+
+/* ── Tablette (769–1100px) ── */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .hero-car { height: 250px; }
+  .hero-slide { width: 66%; }
+  .hero-title { font-size: 24px; }
+  .hd-row { grid-auto-columns: 140px; }
+}
+
+/* ── Mobile (≤ 768px) ── */
+@media (max-width: 768px) {
+  .home-dash { gap: 16px; }
+
+  /* Hero : plus compact, carte centrale dominante, voisines discrètes.
+     overflow hidden = pas de scroll horizontal parasite. */
+  .hero-car { height: 205px; margin: 2px 0 14px; overflow: hidden; border-radius: 16px; }
+  .hero-slide { width: 82%; height: 92%; border-radius: 13px; }
+  .hero-slide.p-r  { transform: translate(-50%,-50%) translateX(52%) scale(.8) rotateY(-14deg); opacity: .3; }
+  .hero-slide.p-l  { transform: translate(-50%,-50%) translateX(-52%) scale(.8) rotateY(14deg);  opacity: .3; }
+  .hero-slide.p-rr { transform: translate(-50%,-50%) translateX(90%) scale(.6); }
+  .hero-slide.p-ll { transform: translate(-50%,-50%) translateX(-90%) scale(.6); }
+  .hero-txt { padding: 12px 16px; }
+  .hero-kick { font-size: 9.5px; }
+  .hero-title { font-size: 19px; margin: 4px 0 2px; }
+  .hero-sub { font-size: 11.5px; }
+  .hero-cta { margin-top: 8px; padding: 6px 14px; font-size: 12px; }
+  .hero-rank { top: 8px; right: 10px; font-size: 11px; padding: 2px 8px; }
+  .hero-dots { bottom: 6px; }
+  .hero-dots i { width: 6px; height: 6px; }
+  .hero-dots i.on { width: 16px; }
+
+  /* Sections + rangées de cartes */
+  .hd-sec { margin-top: 20px; }
+  .hd-sec-head h2 { font-size: 15px; }
+  .hd-row { grid-auto-columns: 126px; gap: 12px; }
+
+  /* Panneaux de droite (empilés sous le contenu) */
+  .hd-right > .hd-panel { padding: 13px; border-radius: 14px; margin-bottom: 14px; }
+}
+
+/* ── Petits mobiles (≤ 420px) ── */
+@media (max-width: 420px) {
+  .hero-car { height: 175px; }
+  .hero-slide { width: 86%; }
+  .hero-title { font-size: 16.5px; }
+  .hero-sub { display: none; }
+  .hero-cta { margin-top: 6px; padding: 5px 12px; font-size: 11px; }
+  .hd-row { grid-auto-columns: 112px; }
+}
