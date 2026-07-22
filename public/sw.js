@@ -2,7 +2,7 @@
 
 // ── Cache versionné ──────────────────────────────────────────────────────────
 // Bumper CACHE à chaque déploiement où l'on veut invalider les vieux assets.
-const CACHE = 'kw-cache-v7';
+const CACHE = 'kw-cache-v8';
 
 // Assets essentiels pré-cachés (coquille de l'app). Les JS/CSS/images versionnés
 // sont mis en cache à la volée (stale-while-revalidate) — pas besoin de les lister ici.

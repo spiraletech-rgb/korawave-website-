@@ -1036,123 +1036,151 @@
       </div>`;
   }
 
+  // ── ACCUEIL — dashboard (maquette violet/or) ──
   function viewHome() {
-    if (State.user) return viewHomeConnected();
-    const tracks = [...State.tracks].filter((t) => t.released !== false);
-    const upcoming = [...State.tracks, ...State.videos]
-      .filter((x) => x.released === false)
-      .sort((a, b) => new Date(a.releaseAt) - new Date(b.releaseAt));
+    const tracks = State.tracks.filter((t) => t.released !== false);
     const videos = filteredVideos().filter((v) => v.released !== false);
-    const trending = [...State.tracks].filter((t) => t.released !== false)
-      .sort((a, b) => b.plays - a.plays).slice(0, 12);
-    const activePacks = State.fanPacks.filter((fp) => fp.status === 'active');
+    const trending = [...tracks].sort((a, b) => (b.plays || 0) - (a.plays || 0));
+    const hasPlays = trending.some((t) => (t.plays || 0) > 0);
+    const newest = tracks.slice(0, 12);
+    const clips = videos.slice(0, 12);
+    const weekly = (hasPlays ? trending : newest).slice(0, 6);
+    const shop = [...clips, ...tracks].slice(0, 4);
 
-    // Salut personnalisé pour un client connecté (style maquette : « Bonjour, prénom »)
-    const greetWord = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
-    const prenom = State.user ? (State.user.name || '').trim() : '';
-    const greeting = State.user ? `
-      <div class="home-greeting">
-        <div class="hg-avatar">${esc((prenom.charAt(0) || '♪').toUpperCase())}</div>
-        <div class="hg-text">
-          <span class="hg-hi">${greetWord},</span>
-          <h2 class="hg-name">${esc(prenom || 'toi')} 👋</h2>
-        </div>
-      </div>` : '';
+    // Items du hero (avec visuel) : clips d'abord puis titres tendance.
+    const heroItems = [...videos, ...trending].filter((x) => x.coverUrl || x.thumbUrl).slice(0, 5);
 
-    const TICKER_GENRES = ['Afrobeats', 'Reggae', 'Jazz', 'Hip-hop', 'Mandingue', 'Mamaya', 'Faré-Gnakhi', 'Soussou', 'Pular', 'Mode Griot', 'Coupé-décalé', 'Gospel', 'Rap', 'Blues', 'Soul'];
-    const tickerHtml = [...TICKER_GENRES, ...TICKER_GENRES].map(g =>
-      `<span class="ticker-item" data-ticker-genre="${g}"><span class="ticker-dot"></span>${g}</span>`
-    ).join('');
+    // Artistes uniques (à partir des titres/clips).
+    const artMap = new Map();
+    [...tracks, ...videos].forEach((x) => {
+      const key = (x.ownerId || x.artist || '').toLowerCase();
+      if (!key || artMap.has(key)) return;
+      artMap.set(key, { id: x.ownerId || '', name: x.artist || '—', img: x.coverUrl || x.thumbUrl || '' });
+    });
+    const artists = [...artMap.values()].slice(0, 12);
 
-    function mkSlider(id, title, goldPart, cards, moreText) {
+    const img = (u, ph, cls) => u ? `<img src="${esc(u)}" alt="" />` : `<div class="ph">${ph}</div>`;
+
+    const heroSlide = (it, i) => {
+      const isVid = it.type === 'video' || !!it.videoUrl;
+      const bg = it.coverUrl || it.thumbUrl || '';
       return `
-        <div class="slider-section">
-          <div class="slider-head">
-            <h2>${title} <span>${goldPart}</span></h2>
-            <div class="slider-head-right">
-              ${moreText ? `<span class="more">${moreText}</span>` : ''}
-              <div class="sl-btns">
-                <button class="sl-btn" data-sl-prev="${id}">‹</button>
-                <button class="sl-btn" data-sl-next="${id}">›</button>
-              </div>
-            </div>
+        <div class="hero-slide ${i === 0 ? 'on' : ''}" ${isVid ? `data-playvideo="${it.id}"` : `data-play="${it.id}"`}>
+          <div class="hero-bg" style="background-image:url('${esc(bg)}')"></div>
+          <div class="hero-txt">
+            <div class="hero-kick">✨ À la une</div>
+            <h1 class="hero-title">${esc(it.title)}</h1>
+            <p class="hero-sub">${esc(it.artist)}</p>
+            <span class="hero-cta">▶ ${isVid ? 'Regarder' : 'Écouter'}</span>
           </div>
-          <div class="sl-track" id="${id}">${cards}</div>
         </div>`;
-    }
+    };
+    const albumCard = (t) => `
+      <div class="al-card" data-play="${t.id}">
+        <div class="al-art">${img(t.coverUrl, '🎵')}<button class="al-play" data-play="${t.id}">▶</button></div>
+        <div class="al-title">${esc(t.title)}</div>
+        <div class="al-sub">${esc(t.artist)}</div>
+      </div>`;
+    const clipCard = (v) => `
+      <div class="al-card" data-playvideo="${v.id}">
+        <div class="al-art" data-hover-video="${esc(v.id)}">
+          ${img(v.thumbUrl || v.coverUrl, '🎬')}
+          ${v.videoUrl ? `<video class="card-vid" data-vsrc="${API_BASE}/api/v1/tracks/${esc(v.id)}/preview/video" muted loop playsinline preload="none" tabindex="-1"></video>` : ''}
+          <button class="al-play" data-playvideo="${v.id}">▶</button>
+        </div>
+        <div class="al-title">${esc(v.title)}</div>
+        <div class="al-sub">${esc(v.artist)}</div>
+      </div>`;
+    const artCircle = (a) => `
+      <div class="ar-item" data-artist-page="${esc(a.id)}">
+        <div class="ar-av">${img(a.img, '🎤')}</div>
+        <div class="ar-name">${esc(a.name)}</div>
+      </div>`;
+    const weeklyItem = (t, i) => `
+      <div class="wk-item ${i === 1 ? 'on' : ''}" data-play="${t.id}">
+        <div class="wk-n">${i + 1}</div>
+        <div class="wk-art">${img(t.coverUrl, '')}</div>
+        <div class="wk-info"><div class="wk-title">${esc(t.title)}</div><div class="wk-sub">${esc(t.artist)}</div></div>
+        <button class="wk-play" data-play="${t.id}">▶</button>
+      </div>`;
+    const shopItem = (t) => {
+      const isVid = t.type === 'video' || !!t.videoUrl;
+      return `
+      <div class="shop-item">
+        <div class="shop-art">${img(t.coverUrl || t.thumbUrl, '')}</div>
+        <div class="shop-info"><div class="shop-t">${esc(t.title)}</div><div class="shop-s">${esc(t.artist)} · ${fmtMoney(t.price)}</div></div>
+        ${t.owned ? '<span class="shop-buy" style="opacity:.55">✓ Acheté</span>' : `<button class="shop-buy" data-buy="${isVid ? 'video' : 'audio'}:${t.id}">Acheter</button>`}
+      </div>`;
+    };
+
+    const prenom = State.user ? (State.user.name || '').trim() : '';
+    const greetWord = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
 
     return `
-      ${greeting}
-      ${State.user ? '' : `
-      <section class="hero">
-        <div class="hero-text">
-          <div class="eyebrow">— La Voix de la Guinée</div>
-          <h1>La musique guinéenne, <em>enfin chez elle</em>.</h1>
-          <p>KORAWAVE est la première plateforme de streaming pensée pour la Guinée : paiement par Orange Money et MTN MoMo, écoute protégée par DRM, et une rémunération directe pour chaque artiste, à chaque écoute.</p>
-          <div class="hero-stats">
-            <div class="hs"><span class="hs-val gold">50%</span><span class="hs-lab">reversés à l'artiste</span></div>
-            <div class="hs"><span class="hs-val gold">500 GNF</span><span class="hs-lab">par titre audio</span></div>
-            <div class="hs"><span class="hs-val">8 couches</span><span class="hs-lab">de protection DRM</span></div>
+      <div class="home-dash">
+        <div class="hd-main">
+          <div class="hd-topstrip">
+            <div class="hd-hello">${State.user ? `${greetWord}, <span>${esc(prenom || 'toi')}</span> 👋` : 'La musique guinéenne, <span>enfin chez elle</span>.'}</div>
+            <button class="hero-cta" id="radioBtn" style="background:var(--gold-dim);color:var(--gold-light);border:1px solid var(--gold-dim2)">📻 Radio KORAWAVE</button>
           </div>
-          <div class="hero-cta">
-            <button class="btn btn-gold" id="heroDownload">Télécharger</button>
-            <button class="btn btn-outline" id="radioBtn">📻 Radio KORAWAVE</button>
-            <button class="btn btn-outline" id="heroProBtn">Korawave Pro</button>
+
+          ${heroItems.length ? `
+          <div class="hero-car" id="heroCar">
+            ${heroItems.map(heroSlide).join('')}
+            <div class="hero-dots">${heroItems.map((_, i) => `<i class="${i === 0 ? 'on' : ''}" data-hero-dot="${i}"></i>`).join('')}</div>
+          </div>` : ''}
+
+          <div class="hd-sec">
+            <div class="hd-sec-head"><h2>Recommandés</h2><span class="more" data-view-btn="music">VOIR TOUT</span></div>
+            <div class="hd-row">${(newest.length ? newest : tracks).slice(0, 10).map(albumCard).join('') || emptyBlock('🎵', "Aucun titre pour l'instant.")}</div>
           </div>
-        </div>
-        <div class="hero-disc">
-          <div class="disc-vinyl">
-            <div class="disc-label"></div>
-            <div class="disc-hole"></div>
-          </div>
-          <div class="float-tag ft-1"><span class="ft-dot"></span>Djama Foula — en cours</div>
-          <div class="float-tag ft-2">+2,5M téléchargements</div>
-          <div class="float-tag ft-3">500 GNF · <span style="color:var(--gold)">débloqué</span></div>
-        </div>
-      </section>
 
-      <div class="genre-ticker"><div class="ticker-inner">${tickerHtml}</div></div>`}
+          ${artists.length ? `
+          <div class="hd-sec">
+            <div class="hd-sec-head"><h2>Artistes</h2><span class="more" data-view-btn="music">PLUS</span></div>
+            <div class="ar-row">${artists.map(artCircle).join('')}</div>
+          </div>` : ''}
 
-      ${State.topGuinee.length ? `
-      <div class="slider-section">
-        <div class="slider-head"><h2>Top <span>Guinée</span> 🏆</h2><span class="more">Champions des battles KORAWAVE</span></div>
-        <div class="tg-scroll">${State.topGuinee.map((c, i) => topGuineeCard(c, i)).join('')}</div>
-      </div>` : ''}
-
-      ${upcoming.length ? mkSlider('slUpcoming', 'Bientôt', 'disponible',
-        upcoming.map(x => x.audioUrl !== undefined ? trackCard(x) : videoCard(x)).join(''),
-        'Sorties programmées') : ''}
-
-      ${mkSlider('slNew', 'À la', 'une',
-        tracks.length ? tracks.slice(0, 12).map(trackCard).join('') : emptyBlock('🎵', "Aucun titre pour l'instant."),
-        'Nouveautés'
-      )}
-
-      ${trending.some(t => t.plays > 0) ? mkSlider('slTrend', 'Tendances', 'Guinée',
-        trending.map(trackCard).join(''), trending.length + ' titres') : ''}
-
-      ${activePacks.length ? `
-      <div class="slider-section">
-        <div class="slider-head">
-          <h2>Fan <span>Packs</span></h2>
-          <div class="slider-head-right">
-            <span class="more">Bundles artiste avec réduction</span>
-            <div class="sl-btns">
-              <button class="sl-btn" data-sl-prev="slPacks">‹</button>
-              <button class="sl-btn" data-sl-next="slPacks">›</button>
-            </div>
+          <div class="hd-sec">
+            <div class="hd-sec-head"><h2>Clips vidéo</h2><span class="more" data-view-btn="videos">VOIR TOUT</span></div>
+            <div class="hd-row">${clips.length ? clips.map(clipCard).join('') : emptyBlock('🎬', 'Aucun clip pour le moment.')}</div>
           </div>
         </div>
-        <div class="sl-track" id="slPacks">${activePacks.map(fanPackCard).join('')}</div>
-      </div>` : ''}
 
-      ${mkSlider('slVideos', 'Clips', 'vidéo',
-        videos.length ? videos.slice(0, 8).map(videoCard).join('') : emptyBlock('🎬', 'Aucun clip vidéo pour le moment.'),
-        videos.length + ' clips'
-      )}`;
+        <div class="hd-right">
+          <div class="hd-panel">
+            <h3>Cette semaine</h3>
+            ${weekly.length ? weekly.map(weeklyItem).join('') : emptyBlock('🎵', 'Rien pour le moment.')}
+          </div>
+          <div class="hd-panel">
+            <h3>À la une</h3>
+            ${shop.length ? shop.map(shopItem).join('') : ''}
+            <button class="panel-all" data-view-btn="${State.user ? 'wallet' : 'music'}">Voir tout</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Carousel du hero (albums qui défilent en rond) — rotation auto + points.
+  function mountHeroCar() {
+    const car = document.getElementById('heroCar');
+    clearInterval(window._heroInv);
+    if (!car) return;
+    const slides = [...car.querySelectorAll('.hero-slide')];
+    const dots = [...car.querySelectorAll('[data-hero-dot]')];
+    if (slides.length < 2) return;
+    let i = 0;
+    const show = (n) => {
+      i = (n + slides.length) % slides.length;
+      slides.forEach((s, k) => s.classList.toggle('on', k === i));
+      dots.forEach((d, k) => d.classList.toggle('on', k === i));
+    };
+    window._heroInv = setInterval(() => show(i + 1), 5000);
+    dots.forEach((d, k) => d.addEventListener('click', (e) => { e.stopPropagation(); show(k); }));
   }
 
   function mountSliders() {
+    mountHeroCar();
     document.getElementById('heroDownload')?.addEventListener('click', () => go('download'));
     document.getElementById('heroProBtn')?.addEventListener('click', () => go('korawave-pro'));
     document.querySelectorAll('[data-sl-prev],[data-sl-next]').forEach(btn => {
