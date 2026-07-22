@@ -5055,7 +5055,9 @@
       }
       _hvid = vid;
       // Chargement paresseux du clip d'aperçu (10s léger) au 1er survol seulement.
-      if (!vid.src && vid.dataset.vsrc) vid.src = vid.dataset.vsrc;
+      // .load() est INDISPENSABLE : avec preload="none", poser .src ne déclenche pas
+      // le chargement -> la vidéo ne démarrait jamais.
+      if (!vid.src && vid.dataset.vsrc) { vid.src = vid.dataset.vsrc; vid.load(); }
       art.classList.add('hv-on');
       vid.play().catch(() => {});
       const bar = art.querySelector('.card-vid-bar');
