@@ -2379,7 +2379,14 @@ img { display: block; }
 body { background: radial-gradient(1200px 600px at 15% -10%, #241146 0%, transparent 55%), radial-gradient(1000px 700px at 110% 10%, #2a123f 0%, transparent 50%), linear-gradient(160deg, #120a24 0%, #0c0716 60%, #140a26 100%) fixed !important; }
 
 .home-dash { display:grid; grid-template-columns: minmax(0,1fr) 320px; gap:26px; align-items:start; }
-@media (max-width:1100px){ .home-dash{ grid-template-columns:1fr; } .home-dash .hd-right{ order:3; } }
+@media (max-width:1100px){
+  /* minmax(0,1fr) + min-width:0 : sans ça les rangées de cartes forcent la colonne
+     à s'élargir au-delà de l'écran -> hero géant et images qui se chevauchent. */
+  .home-dash{ grid-template-columns: minmax(0,1fr); }
+  .home-dash .hd-right{ order:3; }
+  .home-dash .hd-main, .home-dash .hd-right{ min-width:0; }
+  .home-dash .hd-row{ min-width:0; }
+}
 
 /* ── HERO CAROUSEL (albums qui défilent) ── */
 /* ── HERO COVERFLOW 3D (Top 10 du mois qui défilent) ── */
