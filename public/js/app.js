@@ -2181,17 +2181,41 @@
       m.querySelector('#rechargeStep1').classList.add('hidden');
       const s2 = m.querySelector('#rechargeStep2');
       s2.classList.remove('hidden');
-      s2.innerHTML = `<div class="pay-sim"><div class="pay-spinner"></div>Demande envoyée au ${PAY_LABELS[method].name}…<br>Confirme sur ton téléphone (simulation).</div>`;
-      try {
-        await new Promise((r) => setTimeout(r, 1400)); // simulation du délai USSD
-        const res = await api('/wallet/recharge', { method: 'POST', body: { packId: pack.id, method, phone } });
-        syncBalance(res.balance);
-        s2.innerHTML = `<div class="pay-sim" style="color:var(--green)"><div style="font-size:40px;margin-bottom:10px">✓</div>Paiement confirmé — <b style="color:var(--gold)">+${fmtNum(res.credited)} KOINS</b><br><span style="font-size:11px">Réf : ${esc(res.paymentRef)}</span></div><button class="btn btn-gold btn-block" id="payDone">Terminé</button>`;
+      s2.innerHTML = `<div class="pay-sim"><div class="pay-spinner"></div>Préparation du paiement…</div>`;
+      const done = (credited) => {
+        s2.innerHTML = `<div class="pay-sim" style="color:var(--green)"><div style="font-size:40px;margin-bottom:10px">✓</div>Paiement confirmé — <b style="color:var(--gold)">+${fmtNum(credited)} KOINS</b></div><button class="btn btn-gold btn-block" id="payDone">Terminé</button>`;
         s2.querySelector('#payDone').onclick = () => { closeModal(); if (State.view === 'wallet') render(); };
-        toast('💰 +' + fmtNum(res.credited) + ' KOINS');
+        toast('💰 +' + fmtNum(credited) + ' KOINS');
+      };
+      const fail = (msg) => {
+        s2.innerHTML = `<div class="pay-sim" style="color:var(--red)">${esc(msg || 'Échec du paiement')}</div><button class="btn btn-outline btn-block" id="payRetry">Réessayer</button>`;
+        s2.querySelector('#payRetry').onclick = () => { closeModal(); rechargeModal(packId); };
+      };
+      try {
+        const res = await api('/wallet/recharge', { method: 'POST', body: { packId: pack.id, method, phone } });
+
+        // ── PAIEMENT RÉEL (CinetPay) : ouvre la page sécurisée + suit le statut.
+        if (res.payment_url) {
+          const rid = res.recharge_id;
+          const win = window.open(res.payment_url, '_blank', 'noopener');
+          s2.innerHTML = `<div class="pay-sim"><div class="pay-spinner"></div>Paiement sécurisé ouvert dans un onglet.<br>Termine le paiement, puis reviens ici.<br><a href="${esc(res.payment_url)}" target="_blank" rel="noopener" style="color:var(--gold);display:inline-block;margin-top:8px">Rouvrir la page de paiement</a></div>`;
+          for (let i = 0; i < 75; i++) {
+            await new Promise((r) => setTimeout(r, 4000));
+            let st; try { st = await api(`/koins/recharge/status/${rid}`); } catch (e) { continue; }
+            if (st.status === 'CONFIRMED') { await loadWallet(); syncBalance((State.walletData && State.walletData.balance_koins) || 0); return done(res.koins); }
+            if (st.status === 'FAILED') return fail('Paiement échoué ou annulé.');
+          }
+          s2.innerHTML = `<div class="pay-sim">⏳ En attente de confirmation. Si tu as payé, ton solde sera crédité sous peu.<br><button class="btn btn-gold btn-block" id="payCheck" style="margin-top:12px">J'ai payé — Vérifier</button></div>`;
+          s2.querySelector('#payCheck').onclick = async () => { const st = await api(`/koins/recharge/status/${rid}`); if (st.status === 'CONFIRMED') { await loadWallet(); done(res.koins); } else toast('Toujours en attente…'); };
+          return;
+        }
+
+        // ── SIMULATION (pas de clés CinetPay) : crédité immédiatement.
+        const credited = res.koins_added ?? res.credited ?? pack.koins;
+        if (res.new_balance != null) syncBalance(res.new_balance);
+        done(credited);
       } catch (e) {
-        s2.innerHTML = `<div class="pay-sim" style="color:var(--red)">Échec : ${esc(e.message)}</div><button class="btn btn-outline btn-block" id="payRetry">Réessayer</button>`;
-        s2.querySelector('#payRetry').onclick = () => rechargeModal(packId) || closeModal();
+        fail(e.message);
       }
     };
     m.addEventListener('click', (e) => { if (e.target === m || e.target.dataset.close !== undefined) closeModal(); });
